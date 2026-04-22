@@ -729,8 +729,7 @@ ORDER BY r.fecha_emision DESC;
 
 
 -- =====================================================
--- RQF047 — Dashboard de inventario
--- Comportamiento de entradas y salidas por mes
+-- RQF047 -- Consulta de omportamiento de entradas y salidas por mes
 -- =====================================================
 SELECT
     DATE_FORMAT(m.timestamp_mov, '%Y-%m') AS mes,
