@@ -18,11 +18,10 @@ USE salinas_del_cravo;
 -- Catálogo de líneas de sal mineralizada según % de fósforo.
 -- ------------------------------------------------------------
 CREATE TABLE categoria (
-    id_categoria        INT             NOT NULL AUTO_INCREMENT,
+    id_categoria        INT             NOT NULL AUTO_INCREMENT PRIMARY KEY,
     nombre_categoria    VARCHAR(100)    NOT NULL,
     descripcion_uso     VARCHAR(255)    NOT NULL,
     porcentaje_fosforo  DECIMAL(4,1)    NOT NULL,
-    CONSTRAINT pk_categoria PRIMARY KEY (id_categoria),
     CONSTRAINT uq_categoria_nombre UNIQUE (nombre_categoria)
 );
  
@@ -31,14 +30,13 @@ CREATE TABLE categoria (
 -- Cada combinación concentración × presentación es un producto.
 -- ------------------------------------------------------------
 CREATE TABLE producto (
-    id_producto             INT             NOT NULL AUTO_INCREMENT,
+    id_producto             INT             NOT NULL AUTO_INCREMENT PRIMARY KEY,
     id_categoria            INT             NOT NULL,
     nombre_sal_mineralizada VARCHAR(150)    NOT NULL,
     peso_bulto_kg           DECIMAL(6,2)    NOT NULL,
     unidad_medida           VARCHAR(50)     NOT NULL   COMMENT 'kg, 5kg, granel, mochila',
     paquetes_por_bulto      INT             NOT NULL   COMMENT 'Unidades empacadas dentro del bulto',
     descontinuado           TINYINT(1)      NOT NULL   DEFAULT 0,
-    CONSTRAINT pk_producto  PRIMARY KEY (id_producto),
     CONSTRAINT fk_producto_categoria
         FOREIGN KEY (id_categoria) REFERENCES categoria (id_categoria)
         ON UPDATE CASCADE ON DELETE RESTRICT
@@ -49,12 +47,11 @@ CREATE TABLE producto (
 -- Representa cada sede / bodega física de la empresa.
 -- ------------------------------------------------------------
 CREATE TABLE inventario (
-    id_inventario           INT             NOT NULL AUTO_INCREMENT,
+    id_inventario           INT             NOT NULL AUTO_INCREMENT PRIMARY KEY,
     nombre_sede             VARCHAR(100)    NOT NULL,
     direccion_fisica        VARCHAR(255)    NOT NULL,
     capacidad_maxima_bultos INT             NOT NULL,
-    estado_operativo        TINYINT(1)      NOT NULL DEFAULT 1,
-    CONSTRAINT pk_inventario PRIMARY KEY (id_inventario)
+    estado_operativo        TINYINT(1)      NOT NULL DEFAULT 1
 );
  
 -- ------------------------------------------------------------
@@ -62,13 +59,12 @@ CREATE TABLE inventario (
 -- Nivel actual de existencias de cada producto en cada bodega.
 -- ------------------------------------------------------------
 CREATE TABLE stock (
-    id_stock                INT             NOT NULL AUTO_INCREMENT,
+    id_stock                INT             NOT NULL AUTO_INCREMENT PRIMARY KEY,
     id_producto             INT             NOT NULL,
     id_inventario           INT             NOT NULL,
     cantidad_actual         INT             NOT NULL DEFAULT 0,
     stock_minimo_seguridad  INT             NOT NULL DEFAULT 10,
     fecha_ultima_auditoria  DATE            NOT NULL,
-    CONSTRAINT pk_stock PRIMARY KEY (id_stock),
     CONSTRAINT uq_stock_prod_inv UNIQUE (id_producto, id_inventario),
     CONSTRAINT fk_stock_producto
         FOREIGN KEY (id_producto)  REFERENCES producto   (id_producto)
@@ -87,13 +83,12 @@ CREATE TABLE stock (
 -- Tabla base para la jerarquía Administrador / Vendedor.
 -- ------------------------------------------------------------
 CREATE TABLE usuario (
-    id_usuario      INT             NOT NULL AUTO_INCREMENT,
+    id_usuario      INT             NOT NULL AUTO_INCREMENT PRIMARY KEY,
     nombre_completo VARCHAR(150)    NOT NULL,
     username        VARCHAR(60)     NOT NULL,
     password_hash   VARCHAR(255)    NOT NULL,
     estado_activo   TINYINT(1)      NOT NULL DEFAULT 1,
     rol             ENUM('ADMIN','VENDEDOR') NOT NULL,
-    CONSTRAINT pk_usuario  PRIMARY KEY (id_usuario),
     CONSTRAINT uq_username UNIQUE (username)
 );
  
@@ -102,9 +97,8 @@ CREATE TABLE usuario (
 -- Especialización de usuario con rol ADMIN.
 -- ------------------------------------------------------------
 CREATE TABLE administrador (
-    id_usuario              INT             NOT NULL,
+    id_usuario              INT             NOT NULL PRIMARY KEY,
     ultimo_acceso_admin     DATETIME            NULL,
-    CONSTRAINT pk_administrador  PRIMARY KEY (id_usuario),
     CONSTRAINT fk_admin_usuario
         FOREIGN KEY (id_usuario) REFERENCES usuario (id_usuario)
         ON UPDATE CASCADE ON DELETE CASCADE
@@ -115,10 +109,9 @@ CREATE TABLE administrador (
 -- Especialización de usuario con rol VENDEDOR.
 -- ------------------------------------------------------------
 CREATE TABLE vendedor (
-    id_usuario          INT             NOT NULL,
+    id_usuario          INT             NOT NULL PRIMARY KEY,
     codigo_terminal     VARCHAR(20)     NOT NULL,
     ventas_mes_actual   INT             NOT NULL DEFAULT 0,
-    CONSTRAINT pk_vendedor PRIMARY KEY (id_usuario),
     CONSTRAINT uq_vendedor_terminal UNIQUE (codigo_terminal),
     CONSTRAINT fk_vendedor_usuario
         FOREIGN KEY (id_usuario) REFERENCES usuario (id_usuario)
@@ -130,14 +123,13 @@ CREATE TABLE vendedor (
 -- Veterinarias que compran sal mineralizada.
 -- ------------------------------------------------------------
 CREATE TABLE cliente (
-    id_cliente          INT             NOT NULL AUTO_INCREMENT,
+    id_cliente          INT             NOT NULL AUTO_INCREMENT PRIMARY KEY,
     nit_cedula          VARCHAR(20)     NOT NULL,
     nombre_cliente      VARCHAR(150)    NOT NULL,
     telefono            VARCHAR(20)         NULL,
     direccion_entrega   VARCHAR(255)        NULL,
     tipo                ENUM('VETERINARIA','GANADERO') NOT NULL DEFAULT 'VETERINARIA',
     estado_activo       TINYINT(1)      NOT NULL DEFAULT 1,
-    CONSTRAINT pk_cliente  PRIMARY KEY (id_cliente),
     CONSTRAINT uq_cliente_nit UNIQUE (nit_cedula)
 );
  
@@ -148,7 +140,7 @@ CREATE TABLE cliente (
 -- para mantener trazabilidad de la venta.
 -- ------------------------------------------------------------
 CREATE TABLE movimiento_inventario (
-    id_movimiento   INT             NOT NULL AUTO_INCREMENT,
+    id_movimiento   INT             NOT NULL AUTO_INCREMENT PRIMARY KEY,
     id_stock        INT             NOT NULL,
     id_usuario      INT             NOT NULL  COMMENT 'Quien ejecuta el movimiento',
     id_cliente      INT                 NULL  COMMENT 'Obligatorio en SALIDA',
@@ -156,7 +148,6 @@ CREATE TABLE movimiento_inventario (
     cantidad_bultos INT             NOT NULL,
     tipo_mov        ENUM('ENTRADA','SALIDA','AJUSTE') NOT NULL,
     motivo          VARCHAR(255)        NULL,
-    CONSTRAINT pk_movimiento PRIMARY KEY (id_movimiento),
     CONSTRAINT fk_mov_stock
         FOREIGN KEY (id_stock)    REFERENCES stock   (id_stock)
         ON UPDATE CASCADE ON DELETE RESTRICT,
@@ -179,13 +170,12 @@ CREATE TABLE movimiento_inventario (
 -- Un reporte se genera automáticamente por cada movimiento.
 -- ------------------------------------------------------------
 CREATE TABLE reporte (
-    id_reporte      INT             NOT NULL AUTO_INCREMENT,
+    id_reporte      INT             NOT NULL AUTO_INCREMENT PRIMARY KEY,
     id_movimiento   INT             NOT NULL,
     fecha_emision   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     rango_fechas    VARCHAR(100)        NULL  COMMENT 'Periodo referencial del reporte',
     tipo_reporte    ENUM('STOCK','SALIDAS','HISTORIAL') NOT NULL,
     resumen         TEXT                NULL  COMMENT 'Descripción automática del movimiento',
-    CONSTRAINT pk_reporte PRIMARY KEY (id_reporte),
     CONSTRAINT uq_reporte_movimiento UNIQUE (id_movimiento),
     CONSTRAINT fk_reporte_movimiento
         FOREIGN KEY (id_movimiento) REFERENCES movimiento_inventario (id_movimiento)
