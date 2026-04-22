@@ -5,10 +5,9 @@ DROP DATABASE IF EXISTS salinas_del_cravo;
 CREATE DATABASE salinas_del_cravo
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
- 
+
 USE salinas_del_cravo;
- 
- 
+
 -- ============================================================
 -- 2. DDL — CREACIÓN DE TABLAS
 -- ============================================================
