@@ -1,0 +1,1194 @@
+\documentclass[12pt, letterpaper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{times}                    
+\usepackage{geometry}
+\usepackage{setspace}
+\usepackage{parskip}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{float}
+
+\usepackage{listings}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mysql}{
+    language=SQL,
+    backgroundcolor=\color{backcolour},
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{codegreen},
+    stringstyle=\color{codepurple},
+    numbers=left,
+    numberstyle=\tiny\color{codegray},
+    stepnumber=1,
+    numbersep=5pt,
+    frame=single,
+    breaklines=true,
+    captionpos=b,
+    tabsize=2,
+    showstringspaces=false
+}
+
+\lstdefinestyle{json}{
+    language=XML,
+    backgroundcolor=\color{backcolour},
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    commentstyle=\color{codegreen},
+    stringstyle=\color{codepurple},
+    numbers=left,
+    numberstyle=\tiny\color{codegray},
+    frame=single,
+    breaklines=true,
+    captionpos=b
+}
+
+
+\lstdefinestyle{nodejs}{
+    language=JavaScript,
+    backgroundcolor=\color{backcolour},
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{codegreen},
+    stringstyle=\color{codepurple},
+    numbers=left,
+    numberstyle=\tiny\color{codegray},
+    frame=single,
+    breaklines=true,
+    captionpos=b
+}
+
+% CONFIGURACIÓN DE MÁRGENES
+\geometry{
+    letterpaper,
+    top=2.54cm,
+    bottom=2.54cm,
+    left=2.54cm,
+    right=2.54cm,
+}
+
+% INTERLINEADO 
+\doublespacing
+
+% SANGRÍA 
+\setlength{\parindent}{1.27cm}
+\setlength{\parskip}{0pt}
+
+% CONFIGURACIÓN DE TÍTULOS 
+% Nivel 1: 
+\titleformat{\section}
+  {\centering\normalfont\bfseries}
+  {\thesection}{1em}{}
+
+% Nivel 2: 
+\titleformat{\subsection}
+  {\normalfont\bfseries}
+  {\thesubsection}{1em}{}
+
+% Nivel 3: 
+\titleformat{\subsubsection}
+  {\normalfont\bfseries\itshape}
+  {\thesubsubsection}{1em}{}
+
+% Nivel 4:
+\titleformat{\paragraph}[runin]
+  {\normalfont\bfseries}{\theparagraph}{1em}{}
+\titlespacing*{\paragraph}{1.27cm}{0pt}{0.5em}
+
+
+% ENCABEZADOS 
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[R]{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+
+% CONFIGURACIÓN DE FIGURAS Y TABLAS
+\captionsetup[figure]{
+    labelsep=period,
+    justification=centering,
+    font={normalsize, it}
+}
+
+\captionsetup[table]{
+    labelsep=period,
+    justification=centering,
+    font={normalsize}
+}
+
+% LISTAS 
+\setlist[itemize]{
+    leftmargin=1.27cm,
+    label=\textbullet,
+    itemsep=0pt,
+    parsep=0pt
+}
+
+\setlist[enumerate]{
+    leftmargin=1.27cm,
+    itemsep=0pt,
+    parsep=0pt
+}
+
+% INICIO DEL DOCUMENTO
+\begin{document}
+
+% PORTADA 
+
+\begin{center}
+    \vspace*{1cm}
+    
+    {\Large\textbf{Proyecto Base de datos Salinas del cravo}}\\[1.5cm]
+
+    \vspace*{1.5cm}
+    \begin{tabular}{c}
+
+        Juan Esteban Zamudio Pinto\\
+        Javier Santiago Pérez Hernández\\
+        Nicolás Ardila Pico\\
+        Alejandro Arroyave Maya\\
+    \end{tabular}\\[2cm]
+
+    \vspace*{0.7cm}
+    
+    {\large Universidad del Rosario}\\[0.3cm]
+    {\large Escuela de Ingeniería, Ciencia y Tecnología - MACC}\\[0.3cm]
+    {\large Ingeniería de Datos}\\
+    [0.3cm]
+    {\large Profesora: Tatiana Cabrera Vargas}\\
+    [2cm]
+    
+    {\large Bogotá, \today}
+\end{center}
+
+
+
+% RESUMEN
+\newpage
+\section*{RESUMEN EJECUTIVO}
+\addcontentsline{toc}{section}{RESUMEN EJECUTIVO}
+
+\noindent Este documento presenta el modelado del proyecto desarrollado para la empresa agropecuaria ubicada en Sogamoso, con nombre Salinas del Cravo, dedicada a la venta de sal mineralizada para bovinos. La compañía comercializa tres tipos de sal adaptadas a las necesidades del ganado, atendiendo a aproximadamente ochenta clientes directos, todos ellos del sector veterinario.
+
+\noindent  Actualmente, la empresa carece de un sistema digital estructurado para la gestión de su información operativa y comercial. Todos los datos relacionados con clientes, productos, inventario y ventas se registra de manera manual y física, lo que genera varias limitaciones: No hay trazabilidad de las ventas; hay un control deficiente del inventario sin actualización en tiempo real; falta de garantía en la integridad de los datos; inexistencia de mecanismos de autenticación y autorización por roles; imposibilidad de generar reportes automáticos para análisis comercial y falta de respaldos que aseguren la información ante posibles pérdidas.
+
+\noindent El problema principal se encuentra en la ausencia de bases de datos estructuradas que garanticen integridad, disponibilidad, seguridad y capacidad de análisis de la información. Para contribuir a esta necesidad, se propone el análisis, diseño e implementación de una base de datos relacional en SQL y una base de datos no relacional en MongoDB, que permitan administrar clientes, productos, inventarios, ventas y reportes.
+
+\noindent El proyecto se desarrollará siguiendo una metodología ágil basada en Kanban, utilizando la herramienta Trello para la gestión de tareas y el flujo de trabajo. El equipo está conformado por cuatro integrantes, cada uno con responsabilidades definidas sobre los módulos del sistema: gestión de usuarios y seguridad, gestión de clientes, gestión de productos e inventario, y generación de reportes.
+
+\noindent La solución propuesta constituye un ejemplo de aplicación de programación orientada a objetos en el modelado del sistema, donde las entidades del negocio (usuario, cliente, producto, venta) se representan como clases con atributos y métodos específicos. La estructura interna del sistema se organiza en módulos independientes pero relacionados entre ellos, lo que facilita el mantenimiento, la escalabilidad y la asignación de responsabilidades dentro del equipo.
+
+\noindent El impacto esperado del proyecto se determina tanto el ámbito técnico como el social; en lo técnico, se logrará la normalización de los datos mediante un modelo entidad-relación, la automatización de procesos como la actualización de inventario y la generación de reportes, y la implementación de control de acceso basado en roles y el establecimiento de mecanismos de respaldo periódico. En el ámbito social, la solución contribuirá a mejorar el servicio dado a las veterinarias, reducir errores en los pedidos, fortalecer el comercio local del sector ganadero en Sogamoso y promover la transformación digital del sector rural, contribuyendo así a la reducción de brechas tecnológicas.
+
+\vspace{0.5cm}
+\noindent\textit{Palabras clave:}  Bases de datos relacionales, bases de datos no relacionales, SQL, MongoDB, Kanban, gestión comercial, inventario, reportes, sector agropecuario.
+
+\newpage
+
+\noindent\textbf{INFORMACIÓN SOBRE EL DOCUMENTO:} El documento en pdf es interactivo, es decir, los indices son vínculos que redireccionan al apartado clickeado. Lo mismo pasa con las figuras citadas a lo largo del documento, se logra redirigirse a ellas haciendo click en el numero de figura o cuadro citado. Por ejemplo: Figura \ref{fig:tablero-trello} lleva a la figura del tablero en Trello.
+
+% TABLA DE CONTENIDO 
+\newpage
+\tableofcontents
+\thispagestyle{fancy}
+
+
+% LISTA DE TABLAS Y FIGURAS
+\newpage
+\listoftables
+\thispagestyle{fancy}
+
+\newpage
+\listoffigures
+\thispagestyle{fancy}
+
+% ENTREGA 1:
+\newpage
+\section{FASE DE ANÁLISIS Y MODELADO CONCEPTUAL}
+
+% 1.1 CONTEXTUALIZACIÓN
+\subsection{Contextualización}
+
+\subsubsection{Descripción del cliente}
+
+La empresa agropecuaria a tratar, Salinas del Cravo, se encuentra ubicada en Sogamoso. Su actividad principal es la venta de sal mineralizada para bovinos. La empresa vende tres tipos de sal, de manera que cada producto responde a distintas necesidades del ganado bovino. Las ventas se realizan en unidades de bultos. Y, su mercado se compone por aproximadamente 80 clientes directos, quienes son veterinarias.
+
+La compañía desarrolla su actividad de manera continua, registrando ventas frecuentes a lo largo del mes. Sin embargo, actualmente no cuenta con un sistema digital estructurado para la gestión de su información operativa y comercial.
+
+\subsubsection{Diagnóstico del problema}
+
+En la actualidad, toda la información relacionada con clientes, productos, inventario y ventas se registra manualmente, en físico. No existe una plataforma digital que estructure dichos datos. Esta situación genera múltiples limitaciones:
+
+\begin{itemize}
+    \item No hay una trazabilidad clara de las ventas realizadas. 
+    \item No existe un control eficiente de el inventario ni su actualización en tiempo real.
+    \item No se puede garantizar la integridad de los datos.
+    \item No hay mecanismos que identifiquen roles y autoricen a funciones según el rol.
+    \item No se generan reportes automáticos para el análisis comercial.
+    \item No se cuenta con un respaldo para la información
+\end{itemize}
+La empresa posee los datos, sin embargo, la falta de un sistema que los gestione impide su explotación, análisis y utilización estratégica. El procedimiento usado actualmente aumenta el riesgo de errores, duplicados y perdidas en los registros.
+
+En consecuencia, la compañía enfrenta dificultades para evaluar el desempeño de productos, identificar clientes estratégicos, planificar inventarios y tomar decisiones fundamentadas en información confiable.
+
+Una gestión correcta de productos implica el registro estructurado, actualización y control de la información asociada a cada producto, incluyendo su tipo, precio y disponibilidad en inventario. Además, garantiza la consistencia de los datos, trazabilidad de los cambios y disponibilidad de información en tiempo real para apoyar las operaciones comerciales.
+
+% 1.2 FORMULACIÓN DEL PROBLEMA
+\subsection{Formulación del problema}
+
+\subsubsection{Problema a resolver}
+
+La empresa agropecuaria Salinas del Cravo, dedicada a la venta de sal mineralizada para bovinos a aproximadamente 80 clientes, carece actualmente de bases de datos estructuradas que permitan gestionar de manera organizada y confiable su información operativa y comercial. La información de clientes, productos, inventario y ventas se registra de forma manual y en físico, sin mecanismos de control de integridad, seguridad ni respaldo. Esta situación afecta de manera permanente el seguimiento de transacciones, el control de inventario, la generación de reportes y la trazabilidad de la información, incrementando el riesgo de inconsistencias, pérdida de datos y errores administrativos, al tiempo que limita la capacidad de análisis y la toma de decisiones estratégicas.
+
+El problema central radica en la ausencia de bases de datos —tanto relacional como no relacional— debidamente analizadas, diseñadas e implementadas, que garanticen integridad, disponibilidad, seguridad y capacidad de análisis de la información operativa y comercial de la empresa.
+
+\textbf{Pregunta problema:} ¿Cómo analizar, diseñar e implementar una arquitectura de bases de datos relacional y no relacional que permita a la empresa agropecuaria Salinas del Cravo gestionar de forma íntegra, segura y trazable su información de clientes, productos, inventario y ventas?
+
+\subsubsection{Justificación técnica y social}
+
+\textbf{Justificación técnica:} La empresa presenta una falencia estructural en la gestión de su información. Carece de: Un modelo formal entidad-relación normalizado que permita un control de integridad referencial y una mejor organización de los datos; gestión automatizada del inventario, control de acceso por roles, producción de respaldos en caso de perdida de información. 
+
+La implementación de bases de datos —una relacional en SQL y una no relacional en MongoDB— permitirá: Modelar adecuadamente la información mediante un esquema estructurado que garantice la integridad, consistencia y trazabilidad de los datos; automatizar procesos como la actualización en tiempo real del inventario y la generación automática de reportes; implementar el control de acceso y permisos por rol de usuario; y establecer mecanismos de respaldo para proteger y prevenir la pérdida de información.
+
+\textbf{Justificación social:} Resolver este problema no solo impacta positivamente a la empresa, si no también a su entorno. Al mejorar la gestión de la empresa, las veterinarias reciben un mejor servicio, y se reduce el riesgo de errores en pedidos. También, favorece al sector ganadero, fortaleciendo el comercio de Sogamoso y reduciendo las pérdidas económicas del sector. Por otra parte, contribuye indirectamente a la transformación digital del sector rural y a la reducción de brechas tecnológicas.
+
+% 1.3 OBJETIVOS
+\subsection{Objetivos del proyecto}
+
+\subsubsection{Objetivo General}
+
+Analizar, diseñar e implementar una arquitectura de bases de datos relacional en SQL y no relacional en MongoDB para la empresa agropecuaria Salinas del Cravo, que permita gestionar de forma estructurada, íntegra y segura la información de clientes, productos, inventario y ventas.
+
+\subsubsection{Objetivos Específicos}
+
+\begin{itemize}
+    \item Analizar los requerimientos de información del negocio, identificando las entidades, atributos y relaciones necesarios para representar adecuadamente las operaciones comerciales de la empresa.
+    \item Construir el modelo entidad-relación conceptual normalizado que represente las entidades de clientes, productos, inventario y ventas, definiendo claves primarias, foráneas y restricciones de integridad.
+    \item Diseñar el modelo lógico y físico de la base de datos relacional en SQL, especificando tablas, tipos de datos, índices y relaciones de acuerdo con los requerimientos identificados.
+    \item Implementar la base de datos relacional mediante scripts DDL y DML en SQL, cargando datos de prueba representativos del contexto de la empresa.
+    \item Diseñar el modelo de datos no relacional en MongoDB, determinando las colecciones, estructuras de documentos y estrategias de consulta apropiadas para las necesidades del negocio.
+    \item Implementar la base de datos no relacional en MongoDB, creando las colecciones y desarrollando las consultas requeridas para los módulos del sistema.
+    \item Incorporar mecanismos de autenticación, control de acceso por roles y respaldo periódico como parte de las bases de datos implementadas.
+\end{itemize}
+
+% 1.4 ALCANCE
+\subsection{Alcance}
+
+\subsubsection{Alcance del diseño e implementación de bases de datos}
+
+El alcance del proyecto está centrado en el análisis, diseño e implementación de las bases de datos que soporten la gestión operativa y comercial de la empresa Salinas del Cravo. Se delimita de la siguiente forma:
+
+\textbf{Base de datos relacional (SQL):}
+\begin{itemize}
+    \item Diseño del modelo entidad-relación normalizado con las entidades: Usuario, Cliente, Producto, Inventario, Venta y DetalleVenta.
+    \item Definición de claves primarias, foráneas, restricciones de integridad y tipos de datos.
+    \item Implementación mediante scripts DDL (creación de tablas y relaciones) y DML (inserción de datos de prueba con mínimo 50 registros por tabla).
+    \item Consultas avanzadas que respondan a los requerimientos funcionales del negocio.
+    \item Control de acceso mediante roles de usuario: Administrador y Vendedor.
+    \item Mecanismo de respaldo periódico de la base de datos.
+\end{itemize}
+
+\textbf{Base de datos no relacional (MongoDB):}
+\begin{itemize}
+    \item Diseño de la arquitectura de colecciones y estructura de documentos JSON alineada con los requerimientos de consulta del negocio.
+    \item Implementación de colecciones para los módulos de clientes, productos, ventas y reportes.
+    \item Desarrollo de consultas y agregaciones necesarias para la generación de reportes operativos.
+\end{itemize}
+
+\textbf{Módulos y funcionalidades soportados por las bases de datos:}
+\begin{itemize}
+    \item \textbf{Módulo 1 — Gestión de usuarios y seguridad:} Registro y autenticación de usuarios, asignación de roles (Administrador y Vendedor), control de permisos por rol y ejecución de respaldos. El Administrador tendrá acceso completo; el Vendedor tendrá acceso restringido a consultas, registro de clientes, ventas y generación de comprobantes.
+    \item \textbf{Módulo 2 — Gestión de clientes:} Registro, consulta, actualización e inactivación lógica de clientes (veterinarias). Consulta de historial de compras asociado a ventas registradas. Búsqueda por nombre o identificación.
+    \item \textbf{Módulo 3 — Gestión de productos:} Registro de los tipos de sal mineralizada disponibles, actualización de descripciones, precios y características. Clasificación por categorías y validación de productos únicos. Este módulo administra la información del catálogo de productos.
+    \item \textbf{Módulo 4 — Control de inventario:} Registro de entradas y salidas de mercancía en unidades de bultos. Actualización automática del stock tras cada movimiento. Validación de disponibilidad antes de una salida. Configuración de stock mínimo y alertas de inventario crítico. Registro de daños, pérdidas y devoluciones con justificación. Trazabilidad por lote y consulta del historial de movimientos por fecha, producto o cliente. Solo el Administrador puede realizar ajustes manuales de inventario.
+    \item \textbf{Módulo 5 — Generación de reportes y análisis:} Ejecución de consultas avanzadas sobre las bases de datos relacional y no relacional para el análisis de la información operativa y comercial de la empresa. Incluye reportes de stock actual, entradas y salidas por período, productos con mayor rotación, clientes con mayor volumen de compra, daños y pérdidas, devoluciones y dashboard de inventario. 
+\end{itemize}
+
+\textbf{Usuarios contemplados:}
+\begin{itemize}
+    \item \textbf{Administrador:} Acceso completo. Puede gestionar usuarios, clientes, ventas, productos e inventario; generar reportes estratégicos y ejecutar respaldos.
+    \item \textbf{Vendedor:} Acceso restringido. Puede registrar clientes, consultar información, registrar ventas, seleccionar productos y cantidades, consultar historial de compras y registrar formas de pago. No puede modificar usuarios, cambiar configuraciones, ejecutar respaldos, modificar el inventario manualmente ni generar reportes estratégicos.
+\end{itemize}
+
+No se contempla acceso para ningún usuario externo a la compañía.
+
+\subsubsection{Alcances excluidos o futuros}
+
+La versión actual del proyecto no incluye: 
+
+\begin{itemize}
+    \item Modelos de analítica avanzada, incluyendo machine learning, predicción de demanda, segmentación automática de clientes o sistemas de recomendación.
+    \item Despliegue en la nube.
+    \item Facturación electrónica oficial. 
+    \item Arquitectura de alta disponibilidad.
+    \item Aplicación móvil.
+\end{itemize}
+
+% 1.5 METODOLOGÍA
+\subsection{Metodología de desarrollo}
+
+Para garantizar organización, eficiencia y calidad del proyecto, se adoptará una metodología ágil basada en \textbf{Kanban}. Esta metodología permite visualizar el flujo de trabajo, limitar el trabajo en proceso, y entregar valor de manera continua e incremental, lo cual es ideal para un proyecto académico con entregables definidos y un equipo de cuatro personas.
+
+La aplicación de Kanban se realizará a través de la herramienta \textbf{Trello}, donde se gestionarán todas las tareas del proyecto, permitiendo la transparencia y la colaboración entre los integrantes del equipo.
+
+\subsubsection{Pasos Metodológicos}
+
+El desarrollo del proyecto se ha dividido en los siguientes pasos metodológicos organizados en el cuadro \ref{cuad:PasosMetodologicos}. 
+
+\begin{longtable}[c]{|p{2.5cm}|p{3.5cm}|p{3.5cm}|p{2.5cm}|p{2.5cm}|}
+\caption{Detalle de los pasos metodológicos del proyecto} \\
+\hline
+\textbf{Paso Metodológico} & \textbf{Descripción del Proceso} & \textbf{Resultados Esperados} & \textbf{Recursos} & \textbf{Responsable(s)} \\
+\hline
+\endfirsthead
+
+\multicolumn{5}{c}%
+{{\bfseries \tablename\ \thetable{} -- continuación de la página anterior}} \\
+\hline
+\textbf{Paso Metodológico} & \textbf{Descripción del Proceso} & \textbf{Resultados Esperados} & \textbf{Recursos} & \textbf{Responsable(s)} \\
+\hline
+\endhead
+
+\hline \multicolumn{5}{r}{{Continúa en la siguiente página}} \\ \hline
+\endfoot
+
+\hline
+\endlastfoot
+\label{cuad:PasosMetodologicos}
+
+% Fila 1
+\textbf{1. Análisis y Requerimientos} & 
+Identificar a fondo las necesidades del cliente a través de la contextualización y el diagnóstico. Definir el problema, los objetivos, el alcance y los requisitos funcionales y no funcionales. & 
+\begin{itemize}[leftmargin=*,nosep]
+\item Documento de contextualización
+\item 40 requisitos funcionales
+\item Requisitos no funcionales
+\item Historias de usuario
+\item Problema y objetivos validados
+\end{itemize} & 
+\begin{itemize}[leftmargin=*,nosep]
+\item Guía del proyecto
+\item LaTex
+\end{itemize} & 
+\textbf{Javier Pérez} y \textbf{Nicolás Ardila}\\
+\hline
+
+% Fila 2
+\textbf{2. Modelado Conceptual} & 
+Diseñar la arquitectura de la solución. Crear los diagramas de clases, el modelo entidad-relación y el mapa de stakeholders. Definir los módulos del sistema. & 
+\begin{itemize}[leftmargin=*,nosep]
+\item Diagrama de Clases general
+\item MER 
+\item Diagrama de Clases relacional
+\item Mapa de Stakeholders
+\item 4 módulos definidos
+\end{itemize} & 
+\begin{itemize}[leftmargin=*,nosep]
+\item Draw.io
+\item Lucidchart
+\item StarUML
+\item Dia
+\item Creately
+\end{itemize} & 
+\textbf{Nicolás Ardila}, \textbf{Juan Zamudio} y \textbf{Alejandro Arroyave} \\
+\hline
+
+% Fila 3
+\textbf{3. Propuesta de Solución} & 
+Estructurar las alternativas de solución enfocadas en el diseño de las bases de datos, evaluarlas mediante diagramas de flujo y seleccionar la definitiva con argumentos técnicos. & 
+\begin{itemize}[leftmargin=*,nosep]
+\item Diagramas de flujo 
+\item Justificación técnica
+\end{itemize} & 
+\begin{itemize}[leftmargin=*,nosep]
+\item Diagramas e Investigación
+\end{itemize} & 
+\textbf{Todo el equipo} \\
+\hline
+
+% Fila 4
+\textbf{4. Implementación BD Relacional} & 
+Desarrollar el modelo lógico y físico en SQL. Crear los scripts de DDL, DML y consultas avanzadas. & 
+\begin{itemize}[leftmargin=*,nosep]
+\item Modelo lógico.
+\item Scripts DDL y DML
+\item 50+ registros/tabla
+\end{itemize} & 
+\begin{itemize}[leftmargin=*,nosep]
+\item PostgreSQL
+\item MySQL
+\item DBeaver
+\item VS Code
+\end{itemize} & 
+\textbf{Juan Zamudio}, \textbf{Alejandro Arroyave} \\
+\hline
+
+% Fila 5
+\textbf{5. Implementación BD No Relacional} & 
+Diseñar e implementar el modelo de datos en MongoDB. Crear colecciones y documentos, y desarrollar las consultas requeridas. & 
+\begin{itemize}[leftmargin=*,nosep]
+\item Arquitectura NoSQL
+\item Scripts MongoDB
+\end{itemize} & 
+\begin{itemize}[leftmargin=*,nosep]
+\item MongoDB
+\end{itemize} & 
+\textbf{Alejandro Arroyave}, \textbf{Nicolás Ardila} \\
+\hline
+
+% Fila 6
+\textbf{6. Visualización de Datos} & 
+Conectar las bases de datos a una herramienta de visualización y construir tableros que respondan a los requisitos funcionales y necesidades del negocio. & 
+\begin{itemize}[leftmargin=*,nosep]
+\item Tableros funcionales
+\item KPIs del negocio
+\item Conexión entre BD y herramienta
+\end{itemize} & 
+\begin{itemize}[leftmargin=*,nosep]
+\item Power BI
+\end{itemize} & 
+\textbf{Javier Pérez} \\
+\hline
+
+% Fila 7
+\textbf{7. Pruebas y Doc. Final} & 
+Ejecutar el plan de pruebas para verificar el cumplimiento de requisitos. Consolidar toda la documentación y preparar la entrega final. & 
+\begin{itemize}[leftmargin=*,nosep]
+\item Plan de pruebas aplicado
+\item Documento final consolidado
+\item Repositorio GitHub completo
+\end{itemize} & 
+\begin{itemize}[leftmargin=*,nosep]
+\item Guía del proyecto
+\item GitHub
+\item LaTeX
+\end{itemize} & 
+\textbf{Todo el equipo} \\
+\hline
+
+\end{longtable}
+
+\subsubsection{Cronograma de Actividades}
+
+A continuación, se presenta el cronograma tentativo para el desarrollo del proyecto, organizado en el cuadro \ref{tab:cronograma}.
+
+\begin{table}[H]
+\centering
+\caption{Cronograma de actividades del proyecto}
+\label{tab:cronograma}
+\begin{tabular}{|l|c|c|c|c|c|c|}
+\hline
+\textbf{Actividad / Fase} & \textbf{Sem 1} & \textbf{Sem 2} & \textbf{Sem 3} & \textbf{Sem 4} & \textbf{Sem 5} & \textbf{Sem 6+} \\
+\hline
+\textbf{ENTREGA 1: Análisis y Modelado Conceptual} & & & & & & \\
+\hline
+Análisis y Requerimientos & $\bullet$ & $\bullet$ & & & & \\
+\hline
+Modelado Conceptual & & $\bullet$ & $\bullet$ & & & \\
+\hline
+Propuesta de Solución & & & $\bullet$ & & & \\
+\hline
+Elaboración del documento Entrega 1 & & & $\bullet$ & $\bullet$ & & \\
+\hline
+\textbf{ENTREGA 2: Diseño y Desarrollo BD Relacional} & & & & & & \\
+\hline
+Ajustes a entrega 1 y Modelado Lógico & & & & $\bullet$ & & \\
+\hline
+Implementación en SQL (DDL, DML, Consultas) & & & & $\bullet$ & $\bullet$ & \\
+\hline
+\textbf{ENTREGA 3: BD No Relacional y Visualización} & & & & & & \\
+\hline
+Diseño e Implementación en MongoDB & & & & & $\bullet$ & $\bullet$ \\
+\hline
+Desarrollo de Tableros de Visualización & & & & & $\bullet$ & $\bullet$ \\
+\hline
+\textbf{ENTREGA FINAL} & & & & & & \\
+\hline
+Pruebas, Integración y Documentación Final & & & & & & $\bullet$ \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Aplicación de Kanban: Tablero Trello}
+
+Para la gestión visual del flujo de trabajo, se implementó un tablero Kanban en la herramienta Trello. Este tablero permite al equipo visualizar el estado de cada tarea y asegurar que el trabajo avance de manera eficiente.
+
+El tablero contiene la totalidad de las tareas del proyecto distribuidas en columnas que representan los estados del flujo de trabajo: \textit{Por hacer}, \textit{En progreso} y \textit{Completado}. Cada tarjeta incluye la descripción de la tarea, el responsable asignado y la fecha límite correspondiente. El tablero se actualiza de manera continua a medida que avanza el proyecto, y refleja el progreso real de todas las actividades, desde el análisis inicial hasta las pruebas y la documentación final.
+
+En la Figura \ref{fig:tablero-trello} se muestra una captura del tablero durante la fase de análisis.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{TableroKanban.png}
+    \caption{Tablero Kanban en Trello}
+    \label{fig:tablero-trello}
+\end{figure}
+
+El enlace al tablero en línea se encuentra disponible en el Anexo B de este documento.
+
+% 1.6 PROPUESTA DE SOLUCIÓN
+\subsection{Propuesta de solución}
+
+\subsubsection{Alternativas con diagramas de flujo}
+
+Las siguientes alternativas presentan propuestas individuales enfocadas en el diseño y la creación de las bases de datos requeridas por la empresa Salinas del Cravo.
+
+\textbf{Alternativa 1:} 
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.4\textwidth]{DiagramaJavierPerez.png}
+    \caption{Diagrama de flujo Javier Pérez}
+    \label{fig:flujo_alt1}
+\end{figure}
+
+Esta alternativa, presentada en la figura \ref{fig:flujo_alt1}, propone un flujo de diseño centrado en la definición del modelo entidad-relación como punto de partida, seguido de la normalización de las tablas en SQL y la definición de las colecciones en MongoDB a partir de los patrones de consulta identificados. El diagrama se puede observar con mayor detalle en el repositorio de GitHub, en el archivo SolucionPropuestaJP.md (Ver Anexo A).
+
+\textbf{Alternativa 2:} 
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.4\textwidth]{DiagramaFlujoAlejandro.jpg}
+    \caption{Diagrama de flujo Alejandro Arroyave}
+    \label{fig:flujo_alt2}
+\end{figure}
+
+Esta alternativa, presentada en la figura \ref{fig:flujo_alt2}, plantea el diseño de las bases de datos a partir del análisis de los módulos funcionales, definiendo primero las entidades por módulo y luego consolidando el modelo relacional y no relacional de manera independiente. El diagrama se puede observar con mayor detalle en el repositorio de GitHub, en el archivo DiagramaFlujoAlejandro.pdf (Ver Anexo A).
+
+\textbf{Alternativa 3:} 
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.5\textwidth]{Diagrama de flujo Zamudio.png}
+    \caption{Diagrama de flujo Juan Zamudio}
+    \label{fig:flujo_alt3}
+\end{figure}
+
+La alternativa de la figura \ref{fig:flujo_alt3} propone partir de los requerimientos de almacenamiento identificados en el análisis para definir simultáneamente el esquema relacional en SQL y la estructura de documentos en MongoDB, priorizando la coherencia entre ambas bases de datos desde el inicio del diseño.
+
+\textbf{Alternativa 4:} 
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.5\textwidth]{DiagramaNicolas.jpg}
+    \caption{Diagrama de flujo Nicolas Ardila}
+    \label{fig:flujo_alt4}
+\end{figure}
+
+La alternativa de la figura \ref{fig:flujo_alt4} plantea un enfoque iterativo para el diseño de las bases de datos: primero se construye un prototipo del modelo relacional, se valida con datos de prueba, y se ajusta antes de proceder con el modelo no relacional en MongoDB, garantizando que ambas bases respondan con precisión a los requerimientos del negocio.
+
+\subsubsection{Selección de solución definitiva}
+
+\textbf{Solución propuesta}
+
+La solución seleccionada corresponde al análisis, diseño e implementación de una arquitectura de bases de datos híbrida —relacional y no relacional— que soporte la gestión de productos, inventario, clientes y ventas de la empresa agropecuaria Salinas del Cravo. Esta propuesta busca reemplazar el registro manual en cuadernos físicos por una infraestructura de datos estructurada que centralice la información y garantice su integridad, trazabilidad y disponibilidad.
+
+El diseño de la base de datos relacional en SQL parte del modelo entidad-relación normalizado, en el cual se identifican las entidades principales: Usuario, Cliente, Producto, Inventario, Venta y DetalleVenta. Se definen claves primarias, foráneas y restricciones de integridad referencial que aseguran la consistencia de los datos. Los scripts DDL establecen la estructura de las tablas y sus relaciones, mientras que los scripts DML cargan datos representativos del contexto de la empresa para validar el funcionamiento del modelo.
+
+Complementariamente, se diseña una base de datos no relacional en MongoDB orientada a los patrones de consulta del negocio. Las colecciones se estructuran en formato de documentos JSON, optimizando la recuperación de información para la generación de reportes operativos y el registro de actividades con estructuras variables.
+
+La infraestructura de datos contempla además el control de acceso mediante dos roles definidos: Administrador y Vendedor, cada uno con permisos diferenciados sobre las operaciones permitidas en las bases de datos. Se establecen mecanismos de respaldo periódico para proteger la información ante posibles pérdidas.
+
+\textbf{Ventajas de la solución}
+
+\begin{itemize}
+\item Normalización de los datos mediante un modelo entidad-relación que garantiza integridad referencial y elimina redundancias.
+\item Implementación de una arquitectura híbrida que aprovecha las fortalezas de SQL para datos estructurados y de MongoDB para consultas flexibles y reportes.
+\item Control de acceso basado en roles directamente en la base de datos, diferenciando las operaciones permitidas para el Administrador y el Vendedor.
+\item Automatización del descuento de inventario y trazabilidad de ventas a través de relaciones y restricciones definidas en el modelo relacional.
+\item Reducción de errores mediante validaciones de integridad en la base de datos antes del almacenamiento definitivo.
+\item Mayor seguridad y disponibilidad de la información gracias a mecanismos de respaldo periódico.
+\item Capacidad de generación de reportes operativos y estratégicos a partir de consultas sobre ambas bases de datos.
+\end{itemize}
+
+
+% 1.7 REQUISITOS
+\subsection{Requisitos}
+
+\textbf{Requisitos de procesos principales:}
+\begin{itemize}
+    \item Registro y autenticación de usuarios
+    \item Gestión de clientes
+    \item Registro y actualización de productos
+    \item Control y actualización automática del inventario
+    \item Registro de ventas y generación de comprobantes
+\end{itemize}
+
+El listado completo de los 40 requisitos funcionales de bajo nivel, los requisitos no funcionales, las historias de usuario se encuentran en diferentes archivos en la carpeta punto 1.7 de la guía, ubicada en el repositorio del proyecto (ver Anexo A).
+
+
+% 1.8 MODELADO DE LA SOLUCIÓN
+\subsection{Modelado de la solución}
+
+\subsubsection{Diagrama de Clases general del sistema}
+
+El diagrama de clases general se observa en la figura \ref{fig:clases_general}. También está incluido en el archivo Diagrama de clases /Diagrama de clases.pdf, ubicado en el repositorio del proyecto (ver Anexo A).
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\linewidth]{diagramaClasesSalinas.png}
+    \caption{Diagrama de clases general}
+    \label{fig:clases_general}
+\end{figure}
+
+\subsubsection{Selección de los módulos}
+
+El sistema se ha divido en 4 módulos que responden a las necesidades operativas de la empresa. Cada integrante del equipo liderará el desarrollo de cada módulo específico.
+
+\begin{itemize}
+    \item \textbf{Módulo 1:} Gestión de usuarios y seguridad.\\
+El Módulo de Gestión de Usuarios y Seguridad administrará el acceso al sistema y el control de permisos según el rol asignado. Permitirá registrar usuarios, autenticar credenciales y gestionar niveles de autorización. Controlará el acceso a los distintos módulos mediante los roles definidos (Administrador y Vendedor), garantizando que cada usuario solo pueda ejecutar las funciones permitidas. Implementará validación de credenciales y manejo seguro de contraseñas. El Administrador será el único que podrá crear, modificar o inactivar usuarios y ejecutar respaldos periódicos de la base de datos para proteger la información.
+    \item \textbf{Módulo 2:} Gestión de clientes.\\
+El Módulo de Gestión de Clientes administrará la información de las veterinarias que adquieren los productos de la empresa. Permitirá registrar nuevos clientes, actualizar sus datos de contacto y consultar su historial de compras asociado a las ventas registradas. También permitirá la inactivación lógica de registros sin eliminar información del sistema, garantizando trazabilidad y consistencia. Facilitará la búsqueda rápida por nombre o identificación y asegurará la integridad de los datos ingresados. Tanto el Administrador como el Vendedor podrán consultar clientes, pero solo el Administrador podrá realizar modificaciones estructurales o cambios sensibles.
+    \item \textbf{Módulo 3:} Gestión de productos e inventario.\\
+El Módulo de Gestión de Productos e Inventario administrará la información de los productos comercializados y el control del inventario en bodega. Permitirá registrar los tipos de sal disponibles, actualizar precios y el stock en unidades de bultos. Verificará la disponibilidad antes de cada venta y descontará automáticamente el inventario cuando se registre una transacción. El Administrador es el único que podrá modificar manualmente el inventario.
+    \item \textbf{Módulo 4:} Generación de reportes.\\
+El Módulo de Generación de Reportes permitirá el análisis avanzado de la información almacenada en las bases de datos mediante la ejecución de consultas especializadas. Sobre la base de datos relacional en SQL se desarrollarán consultas avanzadas que empleen joins, subconsultas, funciones de agregación y agrupaciones para obtener indicadores clave del negocio: ventas totales por periodo, productos con mayor rotación, clientes con mayor volumen de compra, estado del inventario y desempeño por vendedor. Sobre la base de datos no relacional en MongoDB se construirán pipelines de agregación que permitan consolidar y analizar la información de las colecciones de manera eficiente. El acceso a la generación de reportes estratégicos estará restringido al Administrador, quien podrá ejecutarlos en cualquier momento para apoyar la toma de decisiones comerciales.
+\end{itemize}
+
+\textbf{Flujo de procesos de inventario, ventas y clientes}
+
+El proceso de gestión de clientes inicia con el registro de nuevas veterinarias en el sistema. El usuario (Administrador o Vendedor) ingresa la información del cliente, incluyendo nombre, identificación y datos de contacto. El sistema valida los datos ingresados y, si son correctos, almacena el cliente en la base de datos. En caso de requerirse, el Administrador podrá actualizar la información, garantizando la trazabilidad sin eliminar datos.
+
+El proceso de inventario inicia con el registro de productos por parte del Administrador, incluyendo su cantidad disponible en bodega. Cada vez que se realiza una venta, el sistema verifica automáticamente la disponibilidad del producto solicitado. Si existe stock suficiente, se registra la transacción y se descuenta la cantidad correspondiente del inventario. En caso contrario, se notifica la falta de disponibilidad.
+
+El proceso de ventas comienza con la selección de un cliente previamente registrado, seguido de la elección de productos y cantidades. El sistema calcula automáticamente el valor total de la venta y registra el método de pago. Finalmente, la transacción queda almacenada en la base de datos junto con el usuario responsable, garantizando trazabilidad en cada operación.
+
+\subsubsection{Mapa de Stakeholders}
+
+El mapa de Stakeholders se puede observar en la figura \ref{fig:stakeholders}. Se puede ver mejor en un archivo del repositorio, en Mapa\_StakeHolders/Mapa stakeholders.docx (Ver Anexo A).
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{MapaStakeholders.png}
+    \caption{Mapa de Stakeholders}
+    \label{fig:stakeholders}
+\end{figure}
+
+
+\subsubsection{Diagrama de Clases específico de modelo de datos relacional}
+El diagrama relacional se puede observar en la figura \ref{fig:clases_relacional}. Se puede ver mejor en el repositorio, en MapaDatosRelacional/Mapa Datos Relacional.pdf (Ver Anexo A).
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width = 0.7 \textwidth]{MapaRelacional.png}
+    \caption{Diagrama de Clases - Modelo de Datos Relacional}
+    \label{fig:clases_relacional}
+\end{figure}
+
+\subsubsection{Modelo entidad-relación}
+
+El modelo entidad-relación se puede observar en la figura \ref{fig:mer_conceptual}. Se puede ver mejor en el repositorio en MER/MER.pdf (Ver Anexo A).
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.6\textwidth]{MER.png}
+    \caption{Modelo Entidad-Relación Conceptual}
+    \label{fig:mer_conceptual}
+\end{figure}
+
+
+% CONCLUSIONES
+\newpage
+\subsubsection{Concluciones primera entrega}
+
+La fase de análisis y modelado conceptual permitió establecer una base sólida para el desarrollo del proyecto de bases de datos de la empresa Salinas del Cravo. A continuación se presentan las conclusiones derivadas de cada fase trabajada en esta entrega.
+
+\textbf{Análisis de requerimientos.} El levantamiento de información evidenció que la principal problemática de la empresa no reside en la ausencia de datos, sino en la carencia de una estructura que los gestione adecuadamente. El registro manual en cuadernos físicos impide la trazabilidad, incrementa el riesgo de pérdida de información y limita la capacidad de toma de decisiones. A partir del diagnóstico, fue posible identificar con claridad las entidades del negocio —usuarios, clientes, productos, inventario y ventas— y los requerimientos funcionales que deberá satisfacer la arquitectura de bases de datos.
+
+\textbf{Modelado conceptual.} La construcción del modelo entidad-relación y del diagrama de clases general permitió representar de manera formal las entidades del negocio y sus interrelaciones. Se identificó que la entidad Usuario es la que debe relacionarse directamente con la entidad Venta, dado que cada transacción es ejecutada por un usuario del sistema (Administrador o Vendedor), y no por el cliente. Esta distinción es fundamental para garantizar la trazabilidad de las operaciones y la correcta asignación de responsabilidades dentro del sistema.
+
+\textbf{Propuesta de solución.} La evaluación de las cuatro alternativas planteadas por los integrantes del equipo condujo a la selección de una arquitectura híbrida que combina una base de datos relacional en SQL y una base de datos no relacional en MongoDB. Esta decisión se fundamenta en que el modelo relacional ofrece las garantías de integridad referencial y normalización necesarias para los datos estructurados del negocio, mientras que MongoDB aporta la flexibilidad requerida para el almacenamiento de documentos con estructuras variables y la generación eficiente de reportes operativos.
+
+\textbf{Definición de módulos y alcance.} La delimitación de los cuatro módulos —gestión de usuarios y seguridad, gestión de clientes, gestión de productos e inventario, y generación de reportes— permitió distribuir el trabajo de manera equitativa entre los integrantes del equipo y establecer con claridad las responsabilidades de cada uno en las fases de implementación. La inclusión del módulo de reportes, basado en consultas avanzadas sobre ambas bases de datos, refleja el valor analítico que la solución aportará a la empresa, más allá del simple almacenamiento de datos. El enfoque del alcance en el diseño e implementación de las bases de datos, excluyendo el desarrollo de interfaces de usuario, garantiza que el esfuerzo del proyecto esté concentrado en el componente de ingeniería de datos.
+
+\textbf{Metodología.} La adopción de la metodología Kanban a través de Trello facilitó la organización y el seguimiento del trabajo durante esta primera entrega. El tablero refleja el estado actual de todas las tareas del proyecto y permite identificar cuellos de botella y redistribuir cargas de trabajo de manera oportuna, lo cual será especialmente valioso en las fases de implementación de las bases de datos.
+
+En síntesis, esta fase de análisis y modelado conceptual sentó los fundamentos técnicos y organizativos necesarios para avanzar hacia el diseño lógico y la implementación de las bases de datos en las siguientes entregas del proyecto.
+
+\section{SEGUNDA ENTREGA}
+
+\subsection{Historias de usuario}
+
+Las historias de usuario se pueden observar en la figura: \ref{fig:historias}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width = 0.7 \textwidth]{Historias_usuario.png}
+    \caption{Historias de usuario}
+    \label{fig:historias}
+\end{figure}
+
+\subsection{Modelos segunda entrega}
+
+\subsubsection{Modelo lógico}
+
+El modelo lógico se puede observar en la figura: \ref{fig:modelo_logico}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width = 0.7 \textwidth]{ModeloLogicoSalinas.png}
+    \caption{Modelo lógico}
+    \label{fig:modelo_logico}
+\end{figure}
+
+\subsubsection{Modelo físico}
+El modelo fisico se puede observar en la figura: \ref{fig:modelo_fisico}. Y se obtuvo despues de haber creado la base de datos en MySQL, usando reverse engineering.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width = 0.7 \textwidth]{Modelofisico.jpeg}
+    \caption{Modelo físico}
+    \label{fig:modelo_fisico}
+\end{figure}
+
+\subsection{Diccionario de datos}
+
+% ============================================================
+% DICCIONARIO DE DATOS (VERSIÓN AJUSTADA PARA EVITAR DESBORDES)
+% ============================================================
+\section*{DICCIONARIO DE DATOS}
+\addcontentsline{toc}{section}{DICCIONARIO DE DATOS}
+
+\noindent Base de datos: \texttt{salinas\_del\_cravo}
+
+% ------------------------------------------------------------
+% Tabla: categoria
+% ------------------------------------------------------------
+\subsection*{Tabla: categoria}
+\begin{longtable}{|>{\raggedright\arraybackslash}p{2.0cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\centering\arraybackslash}p{1.0cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\centering\arraybackslash}p{1.2cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\raggedright\arraybackslash}p{3.5cm}|}
+\caption{Diccionario de datos - Tabla categoria} \\
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Nulo} & \textbf{Predeterminado} & \textbf{Clave} & \textbf{Referencia} & \textbf{Descripción} \\
+\hline
+\endfirsthead
+
+\multicolumn{7}{c}%
+{{\bfseries \tablename\ \thetable{} -- continuación de la página anterior}} \\
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Nulo} & \textbf{Predeterminado} & \textbf{Clave} & \textbf{Referencia} & \textbf{Descripción} \\
+\hline
+\endhead
+
+\hline \multicolumn{7}{r}{{Continúa en la siguiente página}} \\ \hline
+\endfoot
+
+\hline
+\endlastfoot
+
+id\_categoria & INT & NO & AUTO\_INCREMENT & PK & - & Identificador único de la categoría \\
+\hline
+nombre\_categoria & VARCHAR(100) & NO & - & UNIQUE & - & Nombre comercial de la categoría (ej. Sal Mineralizada 12\%) \\
+\hline
+descripcion\_uso & VARCHAR(255) & NO & - & - & - & Descripción del uso recomendado de la sal \\
+\hline
+porcentaje\_fosforo & DECIMAL(4,1) & NO & - & - & - & Porcentaje de fósforo contenido en la sal \\
+\end{longtable}
+
+% ------------------------------------------------------------
+% Tabla: producto
+% ------------------------------------------------------------
+\subsection*{Tabla: producto}
+\begin{longtable}{|>{\raggedright\arraybackslash}p{2.0cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\centering\arraybackslash}p{1.0cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\centering\arraybackslash}p{1.2cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\raggedright\arraybackslash}p{3.5cm}|}
+\caption{Diccionario de datos - Tabla producto} \\
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Nulo} & \textbf{Predeterminado} & \textbf{Clave} & \textbf{Referencia} & \textbf{Descripción} \\
+\hline
+\endfirsthead
+
+\multicolumn{7}{c}%
+{{\bfseries \tablename\ \thetable{} -- continuación de la página anterior}} \\
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Nulo} & \textbf{Predeterminado} & \textbf{Clave} & \textbf{Referencia} & \textbf{Descripción} \\
+\hline
+\endhead
+
+\hline \multicolumn{7}{r}{{Continúa en la siguiente página}} \\ \hline
+\endfoot
+
+\hline
+\endlastfoot
+
+id\_producto & INT & NO & AUTO\_INCREMENT & PK & - & Identificador único del producto \\
+\hline
+id\_categoria & INT & NO & - & FK & categoria(id\_categoria) & Categoría a la que pertenece el producto \\
+\hline
+nombre\_sal\_mineralizada & VARCHAR(150) & NO & - & - & - & Nombre completo del producto (incluye concentración y presentación) \\
+\hline
+peso\_bulto\_kg & DECIMAL(6,2) & NO & - & - & - & Peso en kilogramos del bulto o unidad de venta \\
+\hline
+unidad\_medida & VARCHAR(50) & NO & - & - & - & Tipo de unidad (1kg, 5kg, granel, mochila) \\
+\hline
+paquetes\_por\_bulto & INT & NO & - & - & - & Cantidad de paquetes individuales contenidos en un bulto \\
+\hline
+descontinuado & TINYINT(1) & NO & 0 & - & - & Indica si el producto ya no se comercializa (1=descontinuado, 0=activo) \\
+\end{longtable}
+
+% ------------------------------------------------------------
+% Tabla: inventario
+% ------------------------------------------------------------
+\subsection*{Tabla: inventario}
+\begin{longtable}{|>{\raggedright\arraybackslash}p{2.0cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\centering\arraybackslash}p{1.0cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\centering\arraybackslash}p{1.2cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\raggedright\arraybackslash}p{3.5cm}|}
+\caption{Diccionario de datos - Tabla inventario} \\
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Nulo} & \textbf{Predeterminado} & \textbf{Clave} & \textbf{Referencia} & \textbf{Descripción} \\
+\hline
+\endfirsthead
+
+\multicolumn{7}{c}%
+{{\bfseries \tablename\ \thetable{} -- continuación de la página anterior}} \\
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Nulo} & \textbf{Predeterminado} & \textbf{Clave} & \textbf{Referencia} & \textbf{Descripción} \\
+\hline
+\endhead
+
+\hline \multicolumn{7}{r}{{Continúa en la siguiente página}} \\ \hline
+\endfoot
+
+\hline
+\endlastfoot
+
+id\_inventario & INT & NO & AUTO\_INCREMENT & PK & - & Identificador único de la bodega/sede \\
+\hline
+nombre\_sede & VARCHAR(100) & NO & - & - & - & Nombre de la bodega (ej. Bodega Principal Sogamoso) \\
+\hline
+direccion\_fisica & VARCHAR(255) & NO & - & - & - & Dirección física completa de la bodega \\
+\hline
+capacidad\_maxima\_bultos & INT & NO & - & - & - & Capacidad máxima de almacenamiento en bultos \\
+\hline
+estado\_operativo & TINYINT(1) & NO & 1 & - & - & Indica si la bodega está operativa (1=activa, 0=inactiva) \\
+\end{longtable}
+
+% ------------------------------------------------------------
+% Tabla: stock
+% ------------------------------------------------------------
+\subsection*{Tabla: stock}
+\begin{longtable}{|>{\raggedright\arraybackslash}p{2.0cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\centering\arraybackslash}p{1.0cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\centering\arraybackslash}p{1.2cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\raggedright\arraybackslash}p{3.5cm}|}
+\caption{Diccionario de datos - Tabla stock} \\
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Nulo} & \textbf{Predeterminado} & \textbf{Clave} & \textbf{Referencia} & \textbf{Descripción} \\
+\hline
+\endfirsthead
+
+\multicolumn{7}{c}%
+{{\bfseries \tablename\ \thetable{} -- continuación de la página anterior}} \\
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Nulo} & \textbf{Predeterminado} & \textbf{Clave} & \textbf{Referencia} & \textbf{Descripción} \\
+\hline
+\endhead
+
+\hline \multicolumn{7}{r}{{Continúa en la siguiente página}} \\ \hline
+\endfoot
+
+\hline
+\endlastfoot
+
+id\_stock & INT & NO & AUTO\_INCREMENT & PK & - & Identificador único del registro de stock \\
+\hline
+id\_producto & INT & NO & - & FK & producto(id\_producto) & Producto al que corresponde el stock \\
+\hline
+id\_inventario & INT & NO & - & FK & inventario(id\_inventario) & Bodega donde se almacena el producto \\
+\hline
+cantidad\_actual & INT & NO & 0 & - & - & Cantidad de bultos disponibles actualmente \\
+\hline
+stock\_minimo\_seguridad & INT & NO & 10 & - & - & Nivel mínimo de stock antes de generar alerta \\
+\hline
+fecha\_ultima\_auditoria & DATE & NO & - & - & - & Fecha de la última auditoría física realizada \\
+\end{longtable}
+
+\noindent\textbf{Restricciones adicionales de stock:}
+\begin{itemize}
+    \item UNIQUE (id\_producto, id\_inventario): No puede haber dos registros del mismo producto en la misma bodega.
+    \item CHECK (cantidad\_actual >= 0): El stock no puede ser negativo.
+    \item CHECK (stock\_minimo\_seguridad >= 0): El mínimo de seguridad no puede ser negativo.
+\end{itemize}
+
+% ------------------------------------------------------------
+% Tabla: usuario
+% ------------------------------------------------------------
+\subsection*{Tabla: usuario}
+\begin{longtable}{|>{\raggedright\arraybackslash}p{2.0cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\centering\arraybackslash}p{1.0cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\centering\arraybackslash}p{1.2cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\raggedright\arraybackslash}p{3.5cm}|}
+\caption{Diccionario de datos - Tabla usuario} \\
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Nulo} & \textbf{Predeterminado} & \textbf{Clave} & \textbf{Referencia} & \textbf{Descripción} \\
+\hline
+\endfirsthead
+
+\multicolumn{7}{c}%
+{{\bfseries \tablename\ \thetable{} -- continuación de la página anterior}} \\
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Nulo} & \textbf{Predeterminado} & \textbf{Clave} & \textbf{Referencia} & \textbf{Descripción} \\
+\hline
+\endhead
+
+\hline \multicolumn{7}{r}{{Continúa en la siguiente página}} \\ \hline
+\endfoot
+
+\hline
+\endlastfoot
+
+id\_usuario & INT & NO & AUTO\_INCREMENT & PK & - & Identificador único del usuario \\
+\hline
+nombre\_completo & VARCHAR(150) & NO & - & - & - & Nombre completo del usuario \\
+\hline
+username & VARCHAR(60) & NO & - & UNIQUE & - & Nombre de usuario para autenticación \\
+\hline
+password\_hash & VARCHAR(255) & NO & - & - & - & Hash SHA2 de la contraseña \\
+\hline
+estado\_activo & TINYINT(1) & NO & 1 & - & - & Indica si el usuario está activo (1=activo, 0=inactivo) \\
+\hline
+rol & ENUM('ADMIN','VENDEDOR') & NO & - & - & - & Rol del usuario en el sistema \\
+\end{longtable}
+
+% ------------------------------------------------------------
+% Tabla: administrador
+% ------------------------------------------------------------
+\subsection*{Tabla: administrador}
+\begin{longtable}{|>{\raggedright\arraybackslash}p{2.0cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\centering\arraybackslash}p{1.0cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\centering\arraybackslash}p{1.2cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\raggedright\arraybackslash}p{3.5cm}|}
+\caption{Diccionario de datos - Tabla administrador} \\
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Nulo} & \textbf{Predeterminado} & \textbf{Clave} & \textbf{Referencia} & \textbf{Descripción} \\
+\hline
+\endfirsthead
+
+\multicolumn{7}{c}%
+{{\bfseries \tablename\ \thetable{} -- continuación de la página anterior}} \\
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Nulo} & \textbf{Predeterminado} & \textbf{Clave} & \textbf{Referencia} & \textbf{Descripción} \\
+\hline
+\endhead
+
+\hline \multicolumn{7}{r}{{Continúa en la siguiente página}} \\ \hline
+\endfoot
+
+\hline
+\endlastfoot
+
+id\_usuario & INT & NO & - & PK, FK & usuario(id\_usuario) & Identificador del usuario con rol ADMIN \\
+\hline
+ultimo\_acceso\_admin & DATETIME & SI & NULL & - & - & Fecha y hora del último acceso al sistema \\
+\end{longtable}
+
+% ------------------------------------------------------------
+% Tabla: vendedor
+% ------------------------------------------------------------
+\subsection*{Tabla: vendedor}
+\begin{longtable}{|>{\raggedright\arraybackslash}p{2.0cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\centering\arraybackslash}p{1.0cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\centering\arraybackslash}p{1.2cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\raggedright\arraybackslash}p{3.5cm}|}
+\caption{Diccionario de datos - Tabla vendedor} \\
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Nulo} & \textbf{Predeterminado} & \textbf{Clave} & \textbf{Referencia} & \textbf{Descripción} \\
+\hline
+\endfirsthead
+
+\multicolumn{7}{c}%
+{{\bfseries \tablename\ \thetable{} -- continuación de la página anterior}} \\
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Nulo} & \textbf{Predeterminado} & \textbf{Clave} & \textbf{Referencia} & \textbf{Descripción} \\
+\hline
+\endhead
+
+\hline \multicolumn{7}{r}{{Continúa en la siguiente página}} \\ \hline
+\endfoot
+
+\hline
+\endlastfoot
+
+id\_usuario & INT & NO & - & PK, FK & usuario(id\_usuario) & Identificador del usuario con rol VENDEDOR \\
+\hline
+codigo\_terminal & VARCHAR(20) & NO & - & UNIQUE & - & Código único de la terminal o dispositivo del vendedor \\
+\hline
+ventas\_mes\_actual & INT & NO & 0 & - & - & Cantidad de ventas realizadas en el mes en curso \\
+\end{longtable}
+
+% ------------------------------------------------------------
+% Tabla: cliente
+% ------------------------------------------------------------
+\subsection*{Tabla: cliente}
+\begin{longtable}{|>{\raggedright\arraybackslash}p{2.0cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\centering\arraybackslash}p{1.0cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\centering\arraybackslash}p{1.2cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\raggedright\arraybackslash}p{3.5cm}|}
+\caption{Diccionario de datos - Tabla cliente} \\
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Nulo} & \textbf{Predeterminado} & \textbf{Clave} & \textbf{Referencia} & \textbf{Descripción} \\
+\hline
+\endfirsthead
+
+\multicolumn{7}{c}%
+{{\bfseries \tablename\ \thetable{} -- continuación de la página anterior}} \\
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Nulo} & \textbf{Predeterminado} & \textbf{Clave} & \textbf{Referencia} & \textbf{Descripción} \\
+\hline
+\endhead
+
+\hline \multicolumn{7}{r}{{Continúa en la siguiente página}} \\ \hline
+\endfoot
+
+\hline
+\endlastfoot
+
+id\_cliente & INT & NO & AUTO\_INCREMENT & PK & - & Identificador único del cliente \\
+\hline
+nit\_cedula & VARCHAR(20) & NO & - & UNIQUE & - & NIT o cédula del cliente (identificación única) \\
+\hline
+nombre\_cliente & VARCHAR(150) & NO & - & - & - & Nombre comercial o razón social \\
+\hline
+telefono & VARCHAR(20) & SI & NULL & - & - & Número de contacto del cliente \\
+\hline
+direccion\_entrega & VARCHAR(255) & SI & NULL & - & - & Dirección física para la entrega de pedidos \\
+\hline
+tipo & ENUM('VETERINARIA','GANADERO') & NO & 'VETERINARIA' & - & - & Tipo de cliente (veterinaria o ganadero directo) \\
+\hline
+estado\_activo & TINYINT(1) & NO & 1 & - & - & Indica si el cliente está activo (1=activo, 0=inactivo) \\
+\end{longtable}
+
+% ------------------------------------------------------------
+% Tabla: movimiento_inventario
+% ------------------------------------------------------------
+\subsection*{Tabla: movimiento\_inventario}
+\begin{longtable}{|>{\raggedright\arraybackslash}p{2.0cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\centering\arraybackslash}p{1.0cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\centering\arraybackslash}p{1.2cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\raggedright\arraybackslash}p{3.5cm}|}
+\caption{Diccionario de datos - Tabla movimiento\_inventario} \\
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Nulo} & \textbf{Predeterminado} & \textbf{Clave} & \textbf{Referencia} & \textbf{Descripción} \\
+\hline
+\endfirsthead
+
+\multicolumn{7}{c}%
+{{\bfseries \tablename\ \thetable{} -- continuación de la página anterior}} \\
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Nulo} & \textbf{Predeterminado} & \textbf{Clave} & \textbf{Referencia} & \textbf{Descripción} \\
+\hline
+\endhead
+
+\hline \multicolumn{7}{r}{{Continúa en la siguiente página}} \\ \hline
+\endfoot
+
+\hline
+\endlastfoot
+
+id\_movimiento & INT & NO & AUTO\_INCREMENT & PK & - & Identificador único del movimiento \\
+\hline
+id\_stock & INT & NO & - & FK & stock(id\_stock) & Registro de stock afectado \\
+\hline
+id\_usuario & INT & NO & - & FK & usuario(id\_usuario) & Usuario que ejecuta el movimiento \\
+\hline
+id\_cliente & INT & SI & NULL & FK & cliente(id\_cliente) & Cliente asociado (obligatorio en SALIDA) \\
+\hline
+timestamp\_mov & DATETIME & NO & CURRENT\_TIMESTAMP & - & - & Fecha y hora en que se registra el movimiento \\
+\hline
+cantidad\_bultos & INT & NO & - & - & - & Cantidad de bultos involucrados en la transacción \\
+\hline
+tipo\_mov & ENUM('ENTRADA','SALIDA','AJUSTE') & NO & - & - & - & Tipo de movimiento de inventario \\
+\hline
+motivo & VARCHAR(255) & SI & NULL & - & - & Razón o justificación del movimiento (puede incluir lote) \\
+\end{longtable}
+
+\noindent\textbf{Restricciones adicionales de movimiento\_inventario:}
+\begin{itemize}
+    \item CHECK (cantidad\_bultos > 0): La cantidad debe ser positiva.
+    \item CHECK (tipo\_mov <> 'SALIDA' OR id\_cliente IS NOT NULL): Las salidas deben tener un cliente asociado.
+\end{itemize}
+
+% ------------------------------------------------------------
+% Tabla: reporte
+% ------------------------------------------------------------
+\subsection*{Tabla: reporte}
+\begin{longtable}{|>{\raggedright\arraybackslash}p{2.0cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\centering\arraybackslash}p{1.0cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\centering\arraybackslash}p{1.2cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\raggedright\arraybackslash}p{3.5cm}|}
+\caption{Diccionario de datos - Tabla reporte} \\
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Nulo} & \textbf{Predeterminado} & \textbf{Clave} & \textbf{Referencia} & \textbf{Descripción} \\
+\hline
+\endfirsthead
+
+\multicolumn{7}{c}%
+{{\bfseries \tablename\ \thetable{} -- continuación de la página anterior}} \\
+\hline
+\textbf{Campo} & \textbf{Tipo} & \textbf{Nulo} & \textbf{Predeterminado} & \textbf{Clave} & \textbf{Referencia} & \textbf{Descripción} \\
+\hline
+\endhead
+
+\hline \multicolumn{7}{r}{{Continúa en la siguiente página}} \\ \hline
+\endfoot
+
+\hline
+\endlastfoot
+
+id\_reporte & INT & NO & AUTO\_INCREMENT & PK & - & Identificador único del reporte \\
+\hline
+id\_movimiento & INT & NO & - & FK, UNIQUE & movimiento\_inventario(id\_movimiento) & Movimiento al que corresponde el reporte \\
+\hline
+fecha\_emision & DATETIME & NO & CURRENT\_TIMESTAMP & - & - & Fecha y hora de generación del reporte \\
+\hline
+rango\_fechas & VARCHAR(100) & SI & NULL & - & - & Período que cubre el reporte (mes en formato YYYY-MM-01 / YYYY-MM-DD) \\
+\hline
+tipo\_reporte & ENUM('STOCK','SALIDAS','HISTORIAL') & NO & - & - & - & Clasificación del reporte según el tipo de movimiento \\
+\hline
+resumen & TEXT & SI & NULL & - & - & Descripción automática generada a partir del movimiento \\
+\end{longtable}
+
+
+
+
+% REFERENCIAS 
+\newpage
+\section{REFERENCIAS BIBLIOGRÁFICAS}
+
+\begin{thebibliography}{99}
+    \doublespacing
+    
+    \bibitem{oracle2021}
+    Oracle. (2021). \textit{¿Qué es una base de datos relacional?} Oracle Help Center. 
+    Recuperado de \url{https://www.oracle.com/latam/database/what-is-a-relational-database/}
+    
+    \bibitem{mongodb2026}
+    MongoDB Inc. (2026). \textit{MongoDB: la base de datos moderna líder mundial}. 
+    Documentación oficial. Recuperado de \url{https://www.mongodb.com/es}
+    
+    \bibitem{ibm2025}
+    Belcic, I. \& Stryker, C. (2025). \textit{¿Qué es la ingeniería de datos?} IBM Think. 
+    Recuperado de \url{https://www.ibm.com/es-es/think/topics/data-engineering}
+    
+    \bibitem{ilerna2024}
+    ILERNA. (2024). \textit{Modelo Entidad-Relación: qué es, cómo se hace y ejemplos}. 
+    ILERNA Online. Recuperado de \url{https://www.ilerna.es/blog/modelo-entidad-relacion-base-datos}
+    
+    \bibitem{asana2026}
+    Asana. (2026). \textit{¿Qué es la metodología Kanban y cómo funciona?} Guía de gestión de proyectos. 
+    Recuperado de \url{https://asana.com/es/resources/what-is-kanban}
+    
+\end{thebibliography}
+
+\newpage
+\section*{ANEXOS}
+\addcontentsline{toc}{section}{ANEXOS}
+
+\subsection*{Anexo A: Enlace al repositorio}
+\addcontentsline{toc}{subsection}{Anexo A: Enlace al repositorio}
+
+\url{https://github.com/JavierPerezh/ProyectoIngenieriaDeDatos}
+
+\textbf{Estructura del repositorio:}
+\begin{itemize}
+    \item \textbf{Rama principal:} Proyecto completo
+    \item \textbf{Rama NicolasArdila:} Aportes de Nicolás Ardila
+    \item \textbf{Rama BranchJuanZamudio:} Aportes de Juan Zamudio
+    \item \textbf{Rama BranchJavierPerez:} Aportes de Javier Pérez
+    \item \textbf{Rama AlejandroArroyave:} Aportes de Alejandro Arroyave
+\end{itemize}
+
+\subsection*{Anexo B: Tablero Trello}
+\addcontentsline{toc}{subsection}{Anexo B: Tablero Trello}
+
+\url{https://trello.com/invite/b/69a0ffdb9074b6afc32a7bf8/ATTIa17b8c59450493ba722aa904d83be9e58A4C7E94/ingenieria-de-datos}
+
+\end{document}
