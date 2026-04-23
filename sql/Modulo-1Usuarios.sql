@@ -555,424 +555,189 @@ SELECT
     )                                                        AS resumen
 FROM movimiento_inventario m;
 
+-- MODULO 1 - usuarios 
 
 -- ============================================================
 -- CONSULTAS
+-- RQF002: Gestión de usuarios (consultar)
+-- RQF007: Gestión de roles y permisos
 -- ============================================================
 
--- ------------------------------------------------------------
--- CONSULTA BÁSICA [RQF002]
--- Listar todos los usuarios registrados en el sistema
--- ------------------------------------------------------------
-SELECT
-    id_usuario,
-    nombre_completo,
-    username,
-    rol,
-    estado_activo
+-- CONSULTA BÁSICA
+SELECT * FROM usuario;
+
+-- CONSULTA 1: usuarios ordenados
+SELECT id_usuario, nombre_completo, rol
 FROM usuario
-ORDER BY rol, nombre_completo;
-
-
--- ------------------------------------------------------------
--- CONSULTA 1 [RQF002]
--- Buscar un usuario específico por su username
--- ------------------------------------------------------------
-SELECT
-    id_usuario,
-    nombre_completo,
-    username,
-    rol,
-    estado_activo
-FROM usuario
-WHERE username = 'afmorales';
-
-
--- ------------------------------------------------------------
--- CONSULTA 2 [RQF007]
--- Listar únicamente los administradores activos del sistema
--- ------------------------------------------------------------
-SELECT
-    u.id_usuario,
-    u.nombre_completo,
-    u.username,
-    a.ultimo_acceso_admin
-FROM usuario u
-INNER JOIN administrador a ON u.id_usuario = a.id_usuario
-WHERE u.estado_activo = 1
-ORDER BY u.nombre_completo;
-
-
--- ------------------------------------------------------------
--- CONSULTA 3 [RQF007]
--- Listar únicamente los vendedores activos con su terminal
--- ------------------------------------------------------------
-SELECT
-    u.id_usuario,
-    u.nombre_completo,
-    u.username,
-    v.codigo_terminal,
-    v.ventas_mes_actual
-FROM usuario u
-INNER JOIN vendedor v ON u.id_usuario = v.id_usuario
-WHERE u.estado_activo = 1
-ORDER BY v.ventas_mes_actual DESC;
-
-
--- ------------------------------------------------------------
--- CONSULTA 4 [RQF004]
--- Listar usuarios inactivos (acceso deshabilitado)
--- Evidencia que el historial se conserva (RQF004: sin borrar)
--- ------------------------------------------------------------
-SELECT
-    id_usuario,
-    nombre_completo,
-    username,
-    rol
-FROM usuario
-WHERE estado_activo = 0
 ORDER BY nombre_completo;
 
-
--- ------------------------------------------------------------
--- CONSULTA 5 [RQF005]
--- Autenticación: validar credenciales de ingreso
--- Retorna datos del usuario si username + password coinciden
--- ------------------------------------------------------------
-SELECT
-    id_usuario,
-    nombre_completo,
-    rol,
-    estado_activo
+-- CONSULTA 2: buscar usuario por username
+SELECT *
 FROM usuario
-WHERE username = 'afmorales'
-  AND password_hash = SHA2('Vend2026#', 256)
-  AND estado_activo = 1;
-
-
--- ------------------------------------------------------------
--- CONSULTA 6 [RQF007]
--- Resumen de usuarios agrupados por rol
--- Muestra cuántos activos e inactivos hay por cada rol
--- ------------------------------------------------------------
-SELECT
-    rol,
-    SUM(CASE WHEN estado_activo = 1 THEN 1 ELSE 0 END) AS activos,
-    SUM(CASE WHEN estado_activo = 0 THEN 1 ELSE 0 END) AS inactivos,
-    COUNT(*) AS total FROM usuario GROUP BY rol ORDER BY rol;
-    
--- ------------------------------------------------------------
--- CONSULTA 7 — SUBCONSULTA [RQF002 + RQF007]
--- Usuarios que NUNCA han registrado un movimiento de inventario
--- Útil para auditoría y control de acceso real al sistema
--- ------------------------------------------------------------
-SELECT
-    u.id_usuario,
-    u.nombre_completo,
-    u.username,
-    u.rol
-FROM usuario u
-WHERE u.id_usuario NOT IN (
-    SELECT DISTINCT id_usuario
-    FROM movimiento_inventario
-)
-ORDER BY u.rol, u.nombre_completo;
-
-
--- ============================================================
--- BLOQUE 2 — MODIFICACIONES  (5 UPDATE + 1 DELETE)
--- ============================================================
-
--- ------------------------------------------------------------
--- MODIFICACIÓN 1 [RQF003]
--- Actualizar el nombre completo de un usuario
--- ------------------------------------------------------------
-SET SQL_SAFE_UPDATES = 0;
-
-UPDATE usuario
-SET nombre_completo = 'Andrés Felipe Morales Cruz Actualizado'
 WHERE username = 'afmorales';
 
-SET SQL_SAFE_UPDATES = 1;
-
-
--- ------------------------------------------------------------
--- MODIFICACIÓN 2 [RQF003]
--- Actualizar el código de terminal de un vendedor
--- ------------------------------------------------------------
-SET SQL_SAFE_UPDATES = 0;
-
-UPDATE vendedor
-SET codigo_terminal = 'TRM-001-B'
-WHERE codigo_terminal = 'TRM-001';
-
-SET SQL_SAFE_UPDATES = 1;
-
--- ------------------------------------------------------------
--- MODIFICACIÓN 3 [RQF004]
--- Inactivar un usuario: deshabilita acceso SIN eliminar historial
--- ------------------------------------------------------------
-SET SQL_SAFE_UPDATES = 0;
-
-UPDATE usuario
-SET estado_activo = 0
-WHERE username = 'afmorales';
-
-SET SQL_SAFE_UPDATES = 1;
-
-
--- ------------------------------------------------------------
--- MODIFICACIÓN 4 [RQF004]
--- Reactivar un usuario previamente inactivado
--- ------------------------------------------------------------
-SET SQL_SAFE_UPDATES = 0;
-
-UPDATE usuario
-SET estado_activo = 1
-WHERE username = 'afmorales';
-
-SET SQL_SAFE_UPDATES = 1;
-
-
--- ------------------------------------------------------------
--- MODIFICACIÓN 5 [RQF003]
--- Resetear el contador de ventas del mes a un vendedor
--- ------------------------------------------------------------
-SET SQL_SAFE_UPDATES = 0;
-
-UPDATE vendedor
-SET ventas_mes_actual = 0
-WHERE codigo_terminal = 'TRM-001-B';
-
-SET SQL_SAFE_UPDATES = 1;
-
-
--- ------------------------------------------------------------
--- ELIMINACIÓN 1 [RQF001]
--- Eliminar un usuario que fue registrado por error
--- NOTA: solo es posible si el usuario NO tiene movimientos
--- asociados en movimiento_inventario.
--- Para usuarios con historial se usa INACTIVAR (RQF004).
--- ------------------------------------------------------------
-DELETE FROM usuario
-WHERE username = 'usuario_prueba_borrar'
-  AND id_usuario NOT IN (
-      SELECT DISTINCT id_usuario FROM movimiento_inventario
-  );
-  
--- ============================================================
--- BLOQUE 3 — VISTAS
--- ============================================================
--- ------------------------------------------------------------
--- VISTA 1 [RQF002 + RQF007]
--- Vista general de usuarios con su rol detallado
--- Muestra todos los usuarios y a qué especialización pertenecen
--- ------------------------------------------------------------
-DROP VIEW IF EXISTS vista_usuarios_sistema;
-
-CREATE VIEW vista_usuarios_sistema AS
-SELECT
-    u.id_usuario,
-    u.nombre_completo,
-    u.username,
-    u.rol,
-    u.estado_activo,
-    CASE u.rol
-        WHEN 'ADMIN' THEN a.ultimo_acceso_admin
-        ELSE NULL
-    END AS ultimo_acceso_admin,
-    CASE u.rol
-        WHEN 'VENDEDOR' THEN v.codigo_terminal
-        ELSE NULL
-    END AS codigo_terminal,
-    CASE u.rol
-        WHEN 'VENDEDOR' THEN v.ventas_mes_actual
-        ELSE NULL
-    END AS ventas_mes_actual
-FROM usuario u
-LEFT JOIN administrador a ON u.id_usuario = a.id_usuario
-LEFT JOIN vendedor       v ON u.id_usuario = v.id_usuario;
-
--- Consultar la vista:
-SELECT * FROM vista_usuarios_sistema ORDER BY rol, nombre_completo;
-
--- ------------------------------------------------------------
--- VISTA 2 [RQF005 + RQF007]
--- Vista de acceso activo
--- Esta vista es la que consulta el sistema en el proceso de login
--- ------------------------------------------------------------
-DROP VIEW IF EXISTS vista_usuarios_activos;
-
-CREATE VIEW vista_usuarios_activos AS
-SELECT
-    id_usuario,
-    nombre_completo,
-    username,
-    password_hash,
-    rol
+-- CONSULTA 3: usuarios activos
+SELECT nombre_completo
 FROM usuario
 WHERE estado_activo = 1;
 
--- Consultar la vista:
-SELECT id_usuario, nombre_completo, username, rol
-FROM vista_usuarios_activos
-ORDER BY rol, nombre_completo;
+-- CONSULTA 4: usuarios inactivos
+SELECT nombre_completo
+FROM usuario
+WHERE estado_activo = 0;
+
+-- CONSULTA 5: usuarios por rol ADMIN
+SELECT nombre_completo
+FROM usuario
+WHERE rol = 'ADMIN';
+
+-- CONSULTA 6: contar usuarios por rol
+SELECT rol, COUNT(*) AS total
+FROM usuario
+GROUP BY rol;
+
+-- CONSULTA 7: usuarios recientes
+SELECT nombre_completo
+FROM usuario
+ORDER BY id_usuario DESC
+LIMIT 5;
 
 
 -- ============================================================
--- BLOQUE 4 — PROCEDIMIENTOS ALMACENADOS
+-- MODIFICACIONES Y ELIMINACIÓN
+-- RQF001: Gestión de usuarios (registrar)
+-- RQF003: Gestión de usuarios (actualizar)
+-- RQF004: Gestión de usuarios (inactivar)
 -- ============================================================
 
--- ------------------------------------------------------------
--- PROCEDIMIENTO 1 [RQF001]
--- Registrar un nuevo usuario en el sistema
--- Inserta en usuario y en su tabla de especialización (ADMIN o VENDEDOR)
--- ------------------------------------------------------------
-DROP PROCEDURE IF EXISTS sp_registrar_usuario;
+-- MODIFICACIÓN 1
+INSERT INTO usuario (nombre_completo, username, password_hash, estado_activo, rol)
+VALUES ('Usuario 1', 'user1', SHA2('1234',256), 1, 'VENDEDOR');
+
+-- MODIFICACIÓN 2
+INSERT INTO usuario (nombre_completo, username, password_hash, estado_activo, rol)
+VALUES ('Usuario 2', 'user2', SHA2('abcd',256), 1, 'ADMIN');
+
+-- MODIFICACIÓN 3
+UPDATE usuario
+SET nombre_completo = 'Usuario Modificado'
+WHERE username = 'user1';
+
+-- MODIFICACIÓN 4
+UPDATE usuario
+SET rol = 'ADMIN'
+WHERE username = 'user1';
+
+-- MODIFICACIÓN 5
+UPDATE usuario
+SET estado_activo = 0
+WHERE username = 'user2';
+
+-- ELIMINACIÓN 
+DELETE FROM usuario
+WHERE username = 'user2';
+
+
+-- ============================================================
+-- PROCEDIMIENTOS ALMACENADOS
+-- RQF005: Autenticación de usuario (login)
+-- RQF006: Cierre de sesión (logout)
+-- ============================================================
 
 DELIMITER $$
-CREATE PROCEDURE sp_registrar_usuario(
-    IN  p_nombre_completo   VARCHAR(150),
-    IN  p_username VARCHAR(60),
-    IN  p_password VARCHAR(255),
-    IN  p_rol ENUM('ADMIN','VENDEDOR'),
-    IN  p_codigo_terminal VARCHAR(20),  
-    OUT p_id_nuevo INT,
-    OUT p_mensaje VARCHAR(255)
+
+CREATE PROCEDURE sp_login_usuario(
+    IN p_username VARCHAR(50),
+    IN p_password VARCHAR(255)
 )
 BEGIN
-    DECLARE v_existe INT DEFAULT 0;
-
-    -- Verificar que el username no esté ya registrado
-    SELECT COUNT(*) INTO v_existe
+    SELECT id_usuario, nombre_completo, rol
     FROM usuario
-    WHERE username = p_username;
-
-    IF v_existe > 0 THEN
-        SET p_id_nuevo = NULL;
-        SET p_mensaje  = CONCAT('ERROR: El username "', p_username, '" ya existe en el sistema.');
-    ELSE
-        -- Insertar en tabla base usuario
-        INSERT INTO usuario (nombre_completo, username, password_hash, estado_activo, rol)
-        VALUES (p_nombre_completo, p_username, SHA2(p_password, 256), 1, p_rol);
-
-        SET p_id_nuevo = LAST_INSERT_ID();
-
-        -- Insertar en tabla de especialización según rol
-        IF p_rol = 'ADMIN' THEN
-            INSERT INTO administrador (id_usuario, ultimo_acceso_admin)
-            VALUES (p_id_nuevo, NULL);
-        ELSE
-            INSERT INTO vendedor (id_usuario, codigo_terminal, ventas_mes_actual)
-            VALUES (p_id_nuevo, p_codigo_terminal, 0);
-        END IF;
-
-        SET p_mensaje = CONCAT('OK: Usuario "', p_username, '" registrado con ID ', p_id_nuevo, '.');
-    END IF;
+    WHERE username = p_username
+    AND password_hash = SHA2(p_password,256)
+    AND estado_activo = 1;
 END$$
-DELIMITER ;
 
--- Llamado de prueba:
-CALL sp_registrar_usuario(
-    'Prueba Registro Usuario', 'prueba_usr', 'Clave2026!',
-    'VENDEDOR', 'TRM-099',
-    @nuevo_id, @msg
-);
-SELECT @nuevo_id AS id_generado, @msg AS resultado;
-
-
--- ------------------------------------------------------------
--- PROCEDIMIENTO 2 [RQF005]
--- Autenticar usuario: valida credenciales y registra último acceso
--- Retorna los datos del usuario si el login es exitoso
--- ------------------------------------------------------------
-DROP PROCEDURE IF EXISTS sp_autenticar_usuario;
-
-DELIMITER $$
-CREATE PROCEDURE sp_autenticar_usuario(
-    IN  p_username  VARCHAR(60),
-    IN  p_password  VARCHAR(255),
-    OUT p_resultado VARCHAR(50)
+CREATE PROCEDURE sp_cerrar_sesion(
+    IN p_id_usuario INT
 )
 BEGIN
-    DECLARE v_id INT DEFAULT NULL;
-    DECLARE v_activo TINYINT DEFAULT 0;
-    DECLARE v_rol VARCHAR(20);
-
-    SELECT id_usuario, estado_activo, rol
-    INTO v_id, v_activo, v_rol
-    FROM  usuario
-    WHERE username = p_username
-      AND password_hash = SHA2(p_password, 256)
-    LIMIT 1;
-
-    IF v_id IS NULL THEN
-        SET p_resultado = 'CREDENCIALES_INVALIDAS';
-    ELSEIF v_activo = 0 THEN
-        SET p_resultado = 'USUARIO_INACTIVO';
-    ELSE
-        -- Registrar último acceso si es administrador
-        IF v_rol = 'ADMIN' THEN
-            UPDATE administrador
-            SET ultimo_acceso_admin = NOW()
-            WHERE id_usuario = v_id;
-        END IF;
-
-        SET p_resultado = CONCAT('LOGIN_OK|', v_id, '|', v_rol);
-
-        -- Retornar datos del usuario autenticado
-        SELECT id_usuario, nombre_completo, rol
-        FROM   usuario
-        WHERE  id_usuario = v_id;
-    END IF;
+    INSERT INTO reporte (id_movimiento, tipo_reporte, resumen)
+    VALUES (1, 'HISTORIAL', CONCAT('Usuario ', p_id_usuario, ' cerró sesión'));
 END$$
+
 DELIMITER ;
 
--- Llamado de prueba — credenciales correctas:
-CALL sp_autenticar_usuario('afmorales', 'Vend2026#', @res);
-SELECT @res AS resultado_login;
-
--- Llamado de prueba — credenciales incorrectas:
-CALL sp_autenticar_usuario('afmorales', 'ClaveErronea', @res);
-SELECT @res AS resultado_login;
 
 -- ============================================================
--- BLOQUE 6 — CONSULTAS MULTITABLA
+-- VISTAS
+-- RQF002: Consultar usuarios
+-- RQF007: Gestión de roles
 -- ============================================================
 
--- ------------------------------------------------------------
--- MULTITABLA 1 [RQF002 + RQF007]
--- Cruce usuario + especialización: lista completa de todos
--- los usuarios con los datos de su rol correspondiente
--- ------------------------------------------------------------
-SELECT
-    u.id_usuario,
+CREATE OR REPLACE VIEW vw_usuarios_activos AS
+SELECT id_usuario, nombre_completo, username, rol
+FROM usuario
+WHERE estado_activo = 1;
+
+CREATE OR REPLACE VIEW vw_roles_usuarios AS
+SELECT id_usuario, nombre_completo, rol,
+CASE 
+    WHEN rol = 'ADMIN' THEN 'Acceso total'
+    WHEN rol = 'VENDEDOR' THEN 'Acceso limitado'
+END AS tipo_acceso
+FROM usuario;
+
+
+-- ============================================================
+-- SUBCONSULTAS
+-- RQF002: Consultar usuarios
+-- RQF008: Recuperación / auditoría de información
+-- ============================================================
+
+SELECT nombre_completo
+FROM usuario
+WHERE id_usuario IN (
+    SELECT id_usuario
+    FROM movimiento_inventario
+    GROUP BY id_usuario
+    HAVING COUNT(*) > 1
+);
+
+SELECT nombre_completo
+FROM usuario
+WHERE id_usuario IN (
+    SELECT id_usuario
+    FROM movimiento_inventario
+    WHERE timestamp_mov >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+);
+
+
+-- ============================================================
+-- MULTITABLA
+-- RQF002: Consultar información integrada
+-- RQF007: Relación de roles
+-- RQF008: Auditoría de actividad
+-- ============================================================
+
+DESCRIBE movimiento_inventario;
+
+SELECT 
     u.nombre_completo,
-    u.username,
     u.rol,
-    u.estado_activo,
-    COALESCE(v.codigo_terminal, 'N/A') AS terminal,
-    COALESCE(v.ventas_mes_actual, 0)     AS ventas_mes,
-    COALESCE(a.ultimo_acceso_admin, 'Sin acceso aún') AS ultimo_acceso
+    m.tipo_mov,
+    m.cantidad_bultos,
+    m.timestamp_mov
 FROM usuario u
-LEFT JOIN vendedor v ON u.id_usuario = v.id_usuario
-LEFT JOIN administrador a ON u.id_usuario = a.id_usuario
-ORDER BY u.rol, u.estado_activo DESC, u.nombre_completo;
+INNER JOIN movimiento_inventario m
+    ON u.id_usuario = m.id_usuario;
 
-
--- ------------------------------------------------------------
--- MULTITABLA 2 [RQF002 + RQF007]
--- Vendedores con al menos un movimiento de inventario registrado
--- Cruza usuario + vendedor + movimiento_inventario
--- ------------------------------------------------------------
-SELECT
-    u.id_usuario,
+SELECT 
     u.nombre_completo,
-    v.codigo_terminal,
-    COUNT(m.id_movimiento) AS total_movimientos,
-    MAX(m.timestamp_mov) AS ultimo_movimiento
-    FROM usuario u
-INNER JOIN vendedor v ON u.id_usuario = v.id_usuario
-INNER JOIN movimiento_inventario m ON u.id_usuario = m.id_usuario
-GROUP BY u.id_usuario, u.nombre_completo, v.codigo_terminal
-ORDER BY total_movimientos DESC;
+    u.rol,
+    COUNT(m.id_movimiento) AS total_movimientos
+FROM usuario u
+LEFT JOIN movimiento_inventario m
+    ON u.id_usuario = m.id_usuario
+GROUP BY u.id_usuario;
+
