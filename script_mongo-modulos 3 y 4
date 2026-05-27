@@ -1,0 +1,318 @@
+use('salinas_del_cravo_nosql');
+
+// Limpieza preventiva para permitir re-ejecuciones limpias del script
+db.bodegas.drop();
+db.entradas.drop();
+
+db.createCollection("bodegas");
+db.createCollection("entradas");
+
+
+// =============================================================================
+// (10 INSERCIONES POR COLECCIÓN)
+// =============================================================================
+
+print("--- POBLANDO LA COLECCIÓN BODEGAS ---");
+db.bodegas.insertMany([
+  { "_id": 1, "nombre_bodega": "Bodega Principal Sogamoso", "direccion_fisica": "Calle 14 #12-35 Zona Industrial", "capacidad_maxima_bultos": 2000, "estado_activo": true },
+  { "_id": 2, "nombre_bodega": "Bodega Norte Duitama", "direccion_fisica": "Carrera 10 #8-22 Barrio Centro", "capacidad_maxima_bultos": 1200, "estado_activo": true },
+  { "_id": 3, "nombre_bodega": "Bodega Central Tunja", "direccion_fisica": "Calle 9 #6-10 Avenida Universitaria", "capacidad_maxima_bultos": 900, "estado_activo": true },
+  { "_id": 4, "nombre_bodega": "Depósito Alterno Yopal", "direccion_fisica": "Variante Central Km 2 Vía Aguazul", "capacidad_maxima_bultos": 1500, "estado_activo": true },
+  { "_id": 5, "nombre_bodega": "Sede Satélite Aquitania", "direccion_fisica": "Diagonal 4 #3-15 Salida al Lago", "capacidad_maxima_bultos": 450, "estado_activo": false },
+  { "_id": 6, "nombre_bodega": "Bodega Logística Paipa", "direccion_fisica": "Kilómetro 1 Vía Termales", "capacidad_maxima_bultos": 800, "estado_activo": true },
+  { "_id": 7, "nombre_bodega": "Centro de Acopio Chiquinquirá", "direccion_fisica": "Carrera 9 #15-40 Zona Norte", "capacidad_maxima_bultos": 1100, "estado_activo": true },
+  { "_id": 8, "nombre_bodega": "Depósito Sabanalarga", "direccion_fisica": "Calle 3 #5-20 Sector El Llano", "capacidad_maxima_bultos": 600, "estado_activo": false },
+  { "_id": 9, "nombre_bodega": "Bodega Distribución Garagoa", "direccion_fisica": "Carrera 6 #11-12 Barrio El Progreso", "capacidad_maxima_bultos": 750, "estado_activo": true },
+  { "_id": 10, "nombre_bodega": "Mega-Bodega Villavicencio", "direccion_fisica": "Parque Industrial Malocas Bodega 4", "capacidad_maxima_bultos": 5000, "estado_activo": true }
+]);
+
+
+db.entradas.insertMany([
+  {
+    "id_entrada": 1,
+    "numero_lote": "LOT-2026-V1",
+    "id_bodega": 1,
+    "cantidad_ingresada": 407,
+    "tipo_ingreso": "produccion",
+    "fecha_entrada": ISODate("2026-04-01T08:00:00Z"),
+    "id_usuario": 1,
+    "observaciones": "Lote de sal verificado por control de calidad de Sogamoso.",
+    "stock_auditoria": { "stock_minimo_seguridad": 13, "fecha_ultima_auditoria": ISODate("2026-04-01T08:00:00Z") },
+    "producto_embebido": { "id_producto": 1, "nombre_sal_mineralizada": "Sal Mineralizada 12% - Bulto 50kg", "porcentaje_fosforo": 12.0, "unidad_medida": "1kg" }
+  },
+  {
+    "id_entrada": 2,
+    "numero_lote": "LOT-2026-V2",
+    "id_bodega": 2,
+    "cantidad_ingresada": 92,
+    "tipo_ingreso": "compra",
+    "fecha_entrada": ISODate("2026-04-03T10:30:00Z"),
+    "id_usuario": 1,
+    "observaciones": "Materia prima externa importada recibida con éxito.",
+    "stock_auditoria": { "stock_minimo_seguridad": 33, "fecha_ultima_auditoria": ISODate("2026-04-01T08:00:00Z") },
+    "producto_embebido": { "id_producto": 1, "nombre_sal_mineralizada": "Sal Mineralizada 12% - Bulto 50kg", "porcentaje_fosforo": 12.0, "unidad_medida": "5kg" }
+  },
+  {
+    "id_entrada": 3,
+    "numero_lote": "LOT-2026-V3",
+    "id_bodega": 3,
+    "cantidad_ingresada": 220,
+    "tipo_ingreso": "produccion",
+    "fecha_entrada": ISODate("2026-04-05T14:15:00Z"),
+    "id_usuario": 2,
+    "observaciones": "Ingreso rutinario de stock alta rotación.",
+    "stock_auditoria": { "stock_minimo_seguridad": 17, "fecha_ultima_auditoria": ISODate("2026-04-01T08:00:00Z") },
+    "producto_embebido": { "id_producto": 2, "nombre_sal_mineralizada": "Sal Mineralizada 8% - Bulto 50kg", "porcentaje_fosforo": 8.0, "unidad_medida": "1kg" }
+  },
+  {
+    "id_entrada": 4,
+    "numero_lote": "LOT-2026-V4",
+    "id_bodega": 1,
+    "cantidad_ingresada": 194,
+    "tipo_ingreso": "produccion",
+    "fecha_entrada": ISODate("2026-04-10T11:00:00Z"),
+    "id_usuario": 2,
+    "observaciones": "Sal premium de preparto lista para distribución.",
+    "stock_auditoria": { "stock_minimo_seguridad": 14, "fecha_ultima_auditoria": ISODate("2026-04-01T08:00:00Z") },
+    "producto_embebido": { "id_producto": 5, "nombre_sal_mineralizada": "Sal Preparto Premium 8%", "porcentaje_fosforo": 8.0, "unidad_medida": "1kg" }
+  },
+  {
+    "id_entrada": 5,
+    "numero_lote": "LOT-2026-V5",
+    "id_bodega": 4,
+    "cantidad_ingresada": 650,
+    "tipo_ingreso": "reposicion",
+    "fecha_entrada": ISODate("2026-04-12T07:45:00Z"),
+    "id_usuario": 3,
+    "observaciones": "Envío masivo para contingencia por sequía en Casanare.",
+    "stock_auditoria": { "stock_minimo_seguridad": 40, "fecha_ultima_auditoria": ISODate("2026-04-10T09:00:00Z") },
+    "producto_embebido": { "id_producto": 3, "nombre_sal_mineralizada": "Sal Mineralizada 4% - Bulto 40kg", "porcentaje_fosforo": 4.0, "unidad_medida": "granel" }
+  },
+  {
+    "id_entrada": 6,
+    "numero_lote": "LOT-2026-V6",
+    "id_bodega": 6,
+    "cantidad_ingresada": 310,
+    "tipo_ingreso": "produccion",
+    "fecha_entrada": ISODate("2026-04-15T16:20:00Z"),
+    "id_usuario": 4,
+    "observaciones": "Lote empacado en formato liviano para fincas pequeñas.",
+    "stock_auditoria": { "stock_minimo_seguridad": 20, "fecha_ultima_auditoria": ISODate("2026-04-12T13:00:00Z") },
+    "producto_embebido": { "id_producto": 4, "nombre_sal_mineralizada": "Sal Mineralizada 12% - Mochila 10kg", "porcentaje_fosforo": 12.0, "unidad_medida": "mochila" }
+  },
+  {
+    "id_entrada": 7,
+    "numero_lote": "LOT-2026-V7",
+    "id_bodega": 7,
+    "cantidad_ingresada": 85,
+    "tipo_ingreso": "donacion",
+    "fecha_entrada": ISODate("2026-04-18T09:00:00Z"),
+    "id_usuario": 1,
+    "observaciones": "Muestra comercial autorizada para comités de ganaderos.",
+    "stock_auditoria": { "stock_minimo_seguridad": 5, "fecha_ultima_auditoria": ISODate("2026-04-15T10:00:00Z") },
+    "producto_embebido": { "id_producto": 9, "nombre_sal_mineralizada": "Sal Mineralizada Ceba 4%", "porcentaje_fosforo": 4.0, "unidad_medida": "1kg" }
+  },
+  {
+    "id_entrada": 8,
+    "numero_lote": "LOT-2026-V8",
+    "id_bodega": 10,
+    "cantidad_ingresada": 1200,
+    "tipo_ingreso": "produccion",
+    "fecha_entrada": ISODate("2026-04-20T06:00:00Z"),
+    "id_usuario": 5,
+    "observaciones": "Entrada masiva tractomula de la planta central.",
+    "stock_auditoria": { "stock_minimo_seguridad": 100, "fecha_ultima_auditoria": ISODate("2026-04-20T06:00:00Z") },
+    "producto_embebido": { "id_producto": 1, "nombre_sal_mineralizada": "Sal Mineralizada 12% - Bulto 50kg", "porcentaje_fosforo": 12.0, "unidad_medida": "1kg" }
+  },
+  {
+    "id_entrada": 9,
+    "numero_lote": "LOT-2026-V9",
+    "id_bodega": 2,
+    "cantidad_ingresada": 150,
+    "tipo_ingreso": "compra",
+    "fecha_entrada": ISODate("2026-04-22T11:30:00Z"),
+    "id_usuario": 3,
+    "observaciones": "Adquisición de amortiguación logística regional.",
+    "stock_auditoria": { "stock_minimo_seguridad": 15, "fecha_ultima_auditoria": ISODate("2026-04-22T08:00:00Z") },
+    "producto_embebido": { "id_producto": 6, "nombre_sal_mineralizada": "Sal Mineralizada 8% - Bulto 50kg", "porcentaje_fosforo": 8.0, "unidad_medida": "5kg" }
+  },
+  {
+    "id_entrada": 10,
+    "numero_lote": "LOT-2026-V10",
+    "id_bodega": 9,
+    "cantidad_ingresada": 430,
+    "tipo_ingreso": "produccion",
+    "fecha_entrada": ISODate("2026-04-25T15:00:00Z"),
+    "id_usuario": 2,
+    "observaciones": "Lote asignado a la despensa del Valle de Tenza.",
+    "stock_auditoria": { "stock_minimo_seguridad": 25, "fecha_ultima_auditoria": ISODate("2026-04-25T11:00:00Z") },
+    "producto_embebido": { "id_producto": 11, "nombre_sal_mineralizada": "Sal Mineralizada 4% - Bulto 40kg", "porcentaje_fosforo": 4.0, "unidad_medida": "granel" }
+  }
+]);
+
+
+// =============================================================================
+// 3. CONSULTAS BÁSICAS
+// =============================================================================
+print("--- MOSTRANDO CONSULTAS BÁSICAS ---");
+db.bodegas.find();
+db.entradas.find();
+
+
+// =============================================================================
+// 4. CONSULTAS ESPECÍFICAS (7 POR COLECCIÓN)
+// =============================================================================
+
+print("--- EJECUTANDO CONSULTAS ESPECÍFICAS DE BODEGAS ---");
+// 1. Bodegas con un estado activo verificado
+db.bodegas.find({ "estado_activo": true });
+
+// 2. Bodegas industriales con gran capacidad de almacenamiento (>= 1500 bultos)
+db.bodegas.find({ "capacidad_maxima_bultos": { $gte: 1500 } });
+
+// 3. Buscar bodegas cuya dirección contenga la palabra clave 'Calle'
+db.bodegas.find({ "direccion_fisica": /Calle/i });
+
+// 4. Bodegas pequeñas con capacidad restrictiva (menor a 600 bultos)
+db.bodegas.find({ "capacidad_maxima_bultos": { $lt: 600 } });
+
+// 5. Bodegas inactivas que requieren auditoría o mantenimiento físico
+db.bodegas.find({ "estado_activo": false });
+
+// 6. Buscar una bodega exacta utilizando su identificador único (_id: 10)
+db.bodegas.find({ "_id": 10 });
+
+// 7. Bodegas activas que posean una capacidad intermedia (entre 800 y 1300 bultos)
+db.bodegas.find({ "estado_activo": true, "capacidad_maxima_bultos": { $gte: 800, $lte: 1300 } });
+
+
+print("--- EJECUTANDO CONSULTAS ESPECÍFICAS DE ENTRADAS ---");
+// 1. Entradas registradas bajo la modalidad de 'compra'
+db.entradas.find({ "tipo_ingreso": "compra" });
+
+// 2. Entradas con un volumen masivo de bultos (superior a 300 unidades ingresadas)
+db.entradas.find({ "cantidad_ingresada": { $gt: 300 } });
+
+// 3. Filtrar buscando dentro del subdocumento: Producto con un 12% de fósforo
+db.entradas.find({ "producto_embebido.porcentaje_fosforo": 12.0 });
+
+// 4. Buscar lotes por coincidencia exacta de su nomenclatura de planta ("LOT-2026-V5")
+db.entradas.find({ "numero_lote": "LOT-2026-V5" });
+
+// 5. Entradas cuyo stock mínimo de seguridad registrado en auditoría sea superior a 30 bultos
+db.entradas.find({ "stock_auditoria.stock_minimo_seguridad": { $gt: 30 } });
+
+// 6. Entradas asignadas específicamente a la Bodega con ID de referencia 2
+db.entradas.find({ "id_bodega": 2 });
+
+// 7. Buscar registros de entradas cuyas observaciones contengan el término de control 'calidad'
+db.entradas.find({ "observaciones": /calidad/i });
+
+
+// =============================================================================
+// 5. OPERACIONES DE MODIFICACIÓN (5 UPDATES REQUERIDOS)
+// =============================================================================
+print("--- EJECUTANDO OPERACIONES DE MODIFICACIÓN ---");
+
+// Modificación 1: Actualizar la dirección y capacidad por ampliación de la bodega central (_id: 1)
+db.bodegas.updateOne(
+  { "_id": 1 },
+  { $set: { "direccion_fisica": "Calle 14 #12-35 Parque Industrial Sogamoso Almax", "capacidad_maxima_bultos": 2500 } }
+);
+
+// Modificación 2: Cambiar de estado a inactivo de forma masiva a bodegas de muy baja capacidad (< 500)
+db.bodegas.updateMany(
+  { "capacidad_maxima_bultos": { $lt: 500 } },
+  { $set: { "estado_activo": false } }
+);
+
+// Modificación 3: Corregir y ampliar las observaciones del lote de producción LOT-2026-V1
+db.entradas.updateOne(
+  { "numero_lote": "LOT-2026-V1" },
+  { $set: { "observaciones": "Lote verificado por calidad. Muestra de laboratorio aprobada con 100% de pureza." } }
+);
+
+// Modificación 4: Actualizar de forma masiva el tipo de ingreso de "produccion" a "PRODUCCIÓN INTERNA"
+db.entradas.updateMany(
+  { "tipo_ingreso": "produccion" },
+  { $set: { "tipo_ingreso": "PRODUCCIÓN INTERNA" } }
+);
+
+// Modificación 5: Modificar un campo anidado dentro del subdocumento de auditoría para la entrada con ID 3
+db.entradas.updateOne(
+  { "id_entrada": 3 },
+  { $set: { "stock_auditoria.fecha_ultima_auditoria": ISODate("2026-05-27T11:00:00Z") } }
+);
+
+
+// =============================================================================
+// 6. OPERACIONES DE ELIMINACIÓN (1 DELETE REQUERIDO)
+// =============================================================================
+print("--- EJECUTANDO ELIMINACIÓN ---");
+
+// Eliminación: Remover un lote de entrada erróneo o cancelado del historial (id_entrada: 7)
+db.entradas.deleteOne({ "id_entrada": 7 });
+
+
+// =============================================================================
+// 7. CONSULTAS CRUZADAS / AGREGACIONES (JOINS EQUIVALENTES EN NOSQL)
+// =============================================================================
+print("--- EJECUTANDO PIPELINES ANALÍTICOS DE CONSULTAS CRUZADAS ($LOOKUP) ---");
+
+// Consulta Cruzada 1: Reporte Maestro Logístico (Cruza Lotes con sus Bodegas de Custodia)
+db.entradas.aggregate([
+  {
+    $lookup: {
+      from: "bodegas",
+      localField: "id_bodega",
+      foreignField: "_id",
+      as: "bodega_relacionada"
+    }
+  },
+  {
+    $unwind: "$bodega_relacionada"
+  },
+  {
+    $project: {
+      "_id": 0,
+      "Lote": "$numero_lote",
+      "Cantidad_Ingresada": "$cantidad_ingresada",
+      "Nombre_Producto": "$producto_embebido.nombre_sal_mineralizada",
+      "Bodega_Almacenada": "$bodega_relacionada.nombre_bodega",
+      "Ubicacion_Fisica": "$bodega_relacionada.direccion_fisica",
+      "Estado_Bodega": "$bodega_relacionada.estado_activo"
+    }
+  }
+]);
+
+// Consulta Cruzada 2: Consolidado de Carga por Infraestructura Activa
+db.entradas.aggregate([
+  {
+    $group: {
+      "_id": "$id_bodega",
+      "lotes_totales": { $sum: 1 },
+      "bultos_acumulados": { $sum: "$cantidad_ingresada" }
+    }
+  },
+  {
+    $lookup: {
+      from: "bodegas",
+      localField: "_id",
+      foreignField: "_id",
+      as: "info_bodega"
+    }
+  },
+  {
+    $unwind: "$info_bodega"
+  },
+  {
+    $project: {
+      "_id": 0,
+      "ID_Bodega": "$_id",
+      "Bodega": "$info_bodega.nombre_bodega",
+      "Capacidad_Maxima_Diseño": "$info_bodega.capacidad_maxima_bultos",
+      "Lotes_Procesados": "$lotes_totales",
+      "Total_Bultos_Recibidos": "$bultos_acumulados"
+    }
+  }
+]);
