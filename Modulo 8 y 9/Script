@@ -4561,30 +4561,512 @@ VALUES (1,
 'Reporte asociado al movimiento 160');
 
 -- ============================================================
--- RQF053 - Alerta de stock bajo
--- Avisa cuando el stock está por debajo del mínimo definido
+-- RQF060 - Alerta de stock bajo
 -- ============================================================
 
-CREATE OR REPLACE VIEW vw_alerta_stock_bajo AS
+DELIMITER //
+
+CREATE TRIGGER trg_alerta_stock_bajo
+
+AFTER UPDATE ON stock
+
+FOR EACH ROW
+
+BEGIN
+
+    DECLARE mensaje_error VARCHAR(255);
+
+    IF NEW.cantidad_actual <= NEW.stock_minimo_seguridad THEN
+
+        SET mensaje_error = CONCAT(
+            'ALERTA: Stock bajo del producto ID ',
+            NEW.id_producto,
+            ' en bodega ID ',
+            NEW.id_bodega
+        );
+
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = mensaje_error;
+
+    END IF;
+
+END //
+
+DELIMITER ; 
+
+-- ============================================================
+-- RQF061 - Alerta de bodega llena
+-- ============================================================
+
+DELIMITER //
+
+CREATE TRIGGER trg_alerta_bodega_llena
+
+AFTER UPDATE ON stock
+
+FOR EACH ROW
+
+BEGIN
+
+    DECLARE total_bultos INT;
+
+    DECLARE capacidad_maxima INT;
+
+    DECLARE mensaje_error VARCHAR(255);
+
+    SELECT
+        SUM(cantidad_actual)
+    INTO total_bultos
+    FROM stock
+    WHERE id_bodega = NEW.id_bodega;
+
+    SELECT
+        capacidad_maxima_bultos
+    INTO capacidad_maxima
+    FROM bodega
+    WHERE id_bodega = NEW.id_bodega;
+
+    IF total_bultos > capacidad_maxima THEN
+
+        SET mensaje_error = CONCAT(
+            'ALERTA: La bodega ',
+            NEW.id_bodega,
+            ' superó su capacidad máxima'
+        );
+
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = mensaje_error;
+
+    END IF;
+
+END //
+
+DELIMITER ;
+
+-- ============================================================
+-- RQF062 - Buscar por tipo de sal
+-- Permite ver movimientos y ventas de un tipo de sal.
+-- ============================================================
+
+CREATE OR REPLACE VIEW vw_movimientos_por_tipo_sal AS
+
+SELECT
+
+    p.id_producto,
+
+    p.nombre_sal_mineralizada,
+
+    mi.id_movimiento,
+
+    mi.tipo_movimiento,
+
+    mi.fecha_movimiento,
+
+    mi.cantidad_bultos,
+
+    b.nombre_bodega,
+
+    u.nombre_completo AS registrado_por
+
+FROM movimiento_inventario mi
+
+JOIN producto p
+    ON p.id_producto = mi.id_producto
+
+JOIN bodega b
+    ON b.id_bodega = mi.id_bodega
+
+JOIN usuario u
+    ON u.id_usuario = mi.id_usuario;
+
+-- ============================================================
+-- PROBAR RQF062
+-- ============================================================
+
+SELECT *
+FROM vw_movimientos_por_tipo_sal
+WHERE nombre_sal_mineralizada LIKE '%12%';
+
+
+
+-- ============================================================
+-- RQF063 - Buscar por lote
+-- Permite ver entradas y ventas relacionadas con un lote.
+-- ============================================================
+
+CREATE OR REPLACE VIEW vw_movimientos_por_lote AS
+
+SELECT
+
+    e.numero_lote,
+
+    e.fecha_entrada,
+
+    p.nombre_sal_mineralizada,
+
+    mi.id_movimiento,
+
+    mi.tipo_movimiento,
+
+    mi.cantidad_bultos,
+
+    b.nombre_bodega,
+
+    u.nombre_completo
+
+FROM entrada e
+
+JOIN movimiento_inventario mi
+    ON mi.id_movimiento = e.id_movimiento
+
+JOIN stock s
+    ON s.id_stock = e.id_stock
+
+JOIN producto p
+    ON p.id_producto = s.id_producto
+
+JOIN bodega b
+    ON b.id_bodega = e.id_bodega
+
+JOIN usuario u
+    ON u.id_usuario = e.id_usuario;
+
+-- ============================================================
+-- PROBAR RQF063
+-- ============================================================
+
+SELECT *
+FROM vw_movimientos_por_lote
+WHERE numero_lote = 'LOTE-001';
+
+
+
+-- ============================================================
+-- RQF064 - Buscar por bodega
+-- Permite ver movimientos y ventas de una bodega.
+-- ============================================================
+
+CREATE OR REPLACE VIEW vw_movimientos_por_bodega AS
 
 SELECT
 
     b.id_bodega,
+
     b.nombre_bodega,
 
-    p.id_producto,
+    mi.id_movimiento,
+
+    mi.tipo_movimiento,
+
+    mi.fecha_movimiento,
+
+    mi.cantidad_bultos,
+
     p.nombre_sal_mineralizada,
 
-    s.cantidad_actual,
-    s.stock_minimo_seguridad,
+    u.nombre_completo
 
-    CASE
-        WHEN s.cantidad_actual < s.stock_minimo_seguridad
-            THEN 'STOCK BAJO'
-        ELSE 'OK'
-    END AS estado_alerta
+FROM movimiento_inventario mi
 
-FROM stock s
+JOIN bodega b
+    ON b.id_bodega = mi.id_bodega
+
+JOIN producto p
+    ON p.id_producto = mi.id_producto
+
+JOIN usuario u
+    ON u.id_usuario = mi.id_usuario;
+
+-- ============================================================
+-- PROBAR RQF064
+-- ============================================================
+
+SELECT *
+FROM vw_movimientos_por_bodega
+WHERE nombre_bodega LIKE '%Central%';
+
+
+
+-- ============================================================
+-- RQF065 - Buscar por tipo de movimiento
+-- Permite ver entradas, salidas y ajustes.
+-- ============================================================
+
+CREATE OR REPLACE VIEW vw_movimientos_por_tipo AS
+
+SELECT
+
+    mi.id_movimiento,
+
+    mi.tipo_movimiento,
+
+    mi.fecha_movimiento,
+
+    mi.cantidad_bultos,
+
+    p.nombre_sal_mineralizada,
+
+    b.nombre_bodega,
+
+    u.nombre_completo
+
+FROM movimiento_inventario mi
+
+JOIN producto p
+    ON p.id_producto = mi.id_producto
+
+JOIN bodega b
+    ON b.id_bodega = mi.id_bodega
+
+JOIN usuario u
+    ON u.id_usuario = mi.id_usuario;
+
+-- ============================================================
+-- PROBAR RQF065
+-- ============================================================
+
+SELECT *
+FROM vw_movimientos_por_tipo
+WHERE tipo_movimiento = 'ENTRADA';
+
+
+
+-- ============================================================
+-- RQF066 - Buscar por venta
+-- Permite consultar qué salida generó una venta.
+-- ============================================================
+
+CREATE OR REPLACE VIEW vw_detalle_ventas AS
+
+SELECT
+
+    s.id_salida,
+
+    s.fecha_salida,
+
+    c.nombre_cliente,
+
+    p.nombre_sal_mineralizada,
+
+    e.numero_lote,
+
+    s.cantidad_salida,
+
+    b.nombre_bodega,
+
+    u.nombre_completo AS registrado_por
+
+FROM salida s
+
+JOIN cliente c
+    ON c.id_cliente = s.id_cliente
+
+JOIN stock st
+    ON st.id_stock = s.id_stock
+
+JOIN producto p
+    ON p.id_producto = st.id_producto
+
+JOIN bodega b
+    ON b.id_bodega = st.id_bodega
+
+JOIN usuario u
+    ON u.id_usuario = s.id_usuario
+
+LEFT JOIN entrada e
+    ON e.id_stock = st.id_stock;
+
+-- ============================================================
+-- PROBAR RQF066
+-- ============================================================
+
+SELECT *
+FROM vw_detalle_ventas
+WHERE id_salida = 1;
+
+
+
+-- ============================================================
+-- RQF067 - Buscar por quién hizo el movimiento
+-- Permite ver movimientos realizados por un usuario.
+-- ============================================================
+
+CREATE OR REPLACE VIEW vw_movimientos_por_usuario AS
+
+SELECT
+
+    u.id_usuario,
+
+    u.nombre_completo,
+
+    mi.id_movimiento,
+
+    mi.tipo_movimiento,
+
+    mi.fecha_movimiento,
+
+    mi.cantidad_bultos,
+
+    p.nombre_sal_mineralizada,
+
+    b.nombre_bodega
+
+FROM movimiento_inventario mi
+
+JOIN usuario u
+    ON u.id_usuario = mi.id_usuario
+
+JOIN producto p
+    ON p.id_producto = mi.id_producto
+
+JOIN bodega b
+    ON b.id_bodega = mi.id_bodega;
+
+-- ============================================================
+-- PROBAR RQF067
+-- ============================================================
+
+SELECT *
+FROM vw_movimientos_por_usuario
+WHERE nombre_completo LIKE '%Juan%';
+
+
+
+-- ============================================================
+-- RQF068 - Buscar por fechas
+-- Permite consultar movimientos entre fechas.
+-- ============================================================
+
+CREATE OR REPLACE VIEW vw_movimientos_por_fecha AS
+
+SELECT
+
+    mi.id_movimiento,
+
+    mi.fecha_movimiento,
+
+    mi.tipo_movimiento,
+
+    mi.cantidad_bultos,
+
+    p.nombre_sal_mineralizada,
+
+    b.nombre_bodega,
+
+    u.nombre_completo
+
+FROM movimiento_inventario mi
+
+JOIN producto p
+    ON p.id_producto = mi.id_producto
+
+JOIN bodega b
+    ON b.id_bodega = mi.id_bodega
+
+JOIN usuario u
+    ON u.id_usuario = mi.id_usuario;
+
+-- ============================================================
+-- PROBAR RQF068
+-- ============================================================
+
+SELECT *
+FROM vw_movimientos_por_fecha
+WHERE fecha_movimiento BETWEEN '2026-01-01' AND '2026-03-31';
+
+
+
+-- ============================================================
+-- RQF069 - Ver stock de una fecha pasada
+-- Calcula stock histórico.
+-- ============================================================
+
+DELIMITER //
+
+CREATE FUNCTION fn_stock_historico(
+
+    p_id_producto INT,
+    p_fecha DATE
+
+)
+
+RETURNS INT
+
+DETERMINISTIC
+
+BEGIN
+
+    DECLARE stock_total INT;
+
+    SELECT
+        COALESCE(SUM(
+            CASE
+                WHEN tipo_movimiento = 'ENTRADA'
+                    THEN cantidad_bultos
+
+                WHEN tipo_movimiento = 'DEVOLUCION'
+                    THEN cantidad_bultos
+
+                WHEN tipo_movimiento = 'SALIDA'
+                    THEN -cantidad_bultos
+
+                ELSE 0
+            END
+        ),0)
+
+    INTO stock_total
+
+    FROM movimiento_inventario
+
+    WHERE id_producto = p_id_producto
+    AND fecha_movimiento <= p_fecha;
+
+    RETURN stock_total;
+
+END //
+
+DELIMITER ;
+
+-- ============================================================
+-- PROBAR RQF069
+-- ============================================================
+
+SELECT
+    fn_stock_historico(1, '2026-03-01') AS stock_historico;
+
+
+
+-- ============================================================
+-- RQF070 - Ver trazabilidad completa
+-- Permite seguir la cadena completa de un lote.
+-- ============================================================
+
+CREATE OR REPLACE VIEW vw_trazabilidad_lote AS
+
+SELECT
+
+    e.numero_lote,
+
+    p.nombre_sal_mineralizada,
+
+    e.fecha_entrada,
+
+    b.nombre_bodega,
+
+    mi.tipo_movimiento,
+
+    mi.fecha_movimiento,
+
+    mi.cantidad_bultos,
+
+    c.nombre_cliente,
+
+    u.nombre_completo AS registrado_por
+
+FROM entrada e
+
+JOIN stock s
+    ON s.id_stock = e.id_stock
 
 JOIN producto p
     ON p.id_producto = s.id_producto
@@ -4592,565 +5074,25 @@ JOIN producto p
 JOIN bodega b
     ON b.id_bodega = s.id_bodega
 
-WHERE s.cantidad_actual < s.stock_minimo_seguridad
+JOIN movimiento_inventario mi
+    ON mi.id_movimiento = e.id_movimiento
 
-ORDER BY
-    b.nombre_bodega,
-    p.nombre_sal_mineralizada;
+JOIN usuario u
+    ON u.id_usuario = mi.id_usuario
 
+LEFT JOIN salida sa
+    ON sa.id_stock = s.id_stock
 
-
--- ============================================================
--- RQF054 - Alerta de lote próximo a vencer
--- Avisa cuando un lote vencerá en los próximos 30 días
--- ============================================================
-
-CREATE OR REPLACE VIEW vw_alerta_lote_proximo_vencer AS
-
-SELECT
-
-    e.id_entrada,
-
-    p.nombre_sal_mineralizada,
-
-    e.numero_lote,
-
-    e.fecha_entrada,
-    e.fecha_vencimiento,
-
-    e.cantidad_ingresada,
-
-    b.nombre_bodega,
-
-    DATEDIFF(
-        e.fecha_vencimiento,
-        CURDATE()
-    ) AS dias_restantes
-
-FROM entrada e
-
-JOIN stock s
-    ON s.id_stock = e.id_stock
-
-JOIN producto p
-    ON p.id_producto = s.id_producto
-
-JOIN bodega b
-    ON b.id_bodega = e.id_bodega
-
-WHERE
-
-    e.estado_activo = 1
-
-    AND e.fecha_vencimiento >= CURDATE()
-
-    AND e.fecha_vencimiento <= DATE_ADD(
-        CURDATE(),
-        INTERVAL 30 DAY
-    )
-
-ORDER BY
-    e.fecha_vencimiento ASC;
-
-
+LEFT JOIN cliente c
+    ON c.id_cliente = sa.id_cliente;
 
 -- ============================================================
--- RQF055 - Alerta de lote vencido
--- Avisa cuando un lote ya venció y sigue activo
+-- PROBAR RQF070
 -- ============================================================
 
-CREATE OR REPLACE VIEW vw_alerta_lote_vencido AS
+SELECT *
+FROM vw_trazabilidad_lote
+WHERE numero_lote = 'LOTE-001';
 
-SELECT
 
-    e.id_entrada,
 
-    p.nombre_sal_mineralizada,
-
-    e.numero_lote,
-
-    e.fecha_entrada,
-    e.fecha_vencimiento,
-
-    e.cantidad_ingresada,
-
-    b.nombre_bodega,
-
-    DATEDIFF(
-        CURDATE(),
-        e.fecha_vencimiento
-    ) AS dias_vencido
-
-FROM entrada e
-
-JOIN stock s
-    ON s.id_stock = e.id_stock
-
-JOIN producto p
-    ON p.id_producto = s.id_producto
-
-JOIN bodega b
-    ON b.id_bodega = e.id_bodega
-
-WHERE
-
-    e.estado_activo = 1
-
-    AND e.fecha_vencimiento < CURDATE()
-
-ORDER BY
-    e.fecha_vencimiento ASC;
-
-
-
--- ============================================================
--- RQF056 - Alerta de bodega llena
--- Avisa cuando una bodega supera su capacidad máxima
--- ============================================================
-
-CREATE OR REPLACE VIEW vw_alerta_bodega_llena AS
-
-SELECT
-
-    b.id_bodega,
-    b.nombre_bodega,
-
-    b.capacidad_maxima_bultos,
-
-    COALESCE(
-        SUM(s.cantidad_actual),
-        0
-    ) AS total_bultos_almacenados,
-
-    (
-        COALESCE(
-            SUM(s.cantidad_actual),
-            0
-        ) - b.capacidad_maxima_bultos
-    ) AS exceso_bultos,
-
-    CASE
-        WHEN COALESCE(
-                SUM(s.cantidad_actual),
-                0
-             ) > b.capacidad_maxima_bultos
-            THEN 'BODEGA LLENA'
-        ELSE 'OK'
-    END AS estado_alerta
-
-FROM bodega b
-
-LEFT JOIN stock s
-    ON s.id_bodega = b.id_bodega
-
-GROUP BY
-
-    b.id_bodega,
-    b.nombre_bodega,
-    b.capacidad_maxima_bultos
-
-HAVING
-    total_bultos_almacenados > b.capacidad_maxima_bultos
-
-ORDER BY
-    exceso_bultos DESC;
-    
--- ============================================================
--- RQF057 - Buscar por tipo de sal
--- Permite ver todos los movimientos de un tipo de sal
--- ============================================================
-
-DELIMITER //
-
-CREATE PROCEDURE buscar_movimientos_por_tipo_sal(
-
-    IN p_id_producto INT
-
-)
-BEGIN
-
-    SELECT
-
-        mi.id_movimiento,
-
-        p.nombre_sal_mineralizada,
-
-        mi.tipo_movimiento,
-
-        mi.cantidad_bultos,
-
-        mi.fecha_movimiento,
-
-        b.nombre_bodega,
-
-        u.nombre_completo,
-
-        mi.observaciones
-
-    FROM movimiento_inventario mi
-
-    JOIN producto p
-        ON p.id_producto = mi.id_producto
-
-    JOIN bodega b
-        ON b.id_bodega = mi.id_bodega
-
-    JOIN usuario u
-        ON u.id_usuario = mi.id_usuario
-
-    WHERE mi.id_producto = p_id_producto
-
-    ORDER BY mi.fecha_movimiento DESC;
-
-END //
-
-DELIMITER ;
-
-
-
--- ============================================================
--- RQF058 - Buscar por lote
--- Permite ver todo lo que pasó con un lote
--- ============================================================
-
-DELIMITER //
-
-CREATE PROCEDURE buscar_movimientos_por_lote(
-
-    IN p_numero_lote VARCHAR(50)
-
-)
-BEGIN
-
-    SELECT
-
-        e.numero_lote,
-
-        p.nombre_sal_mineralizada,
-
-        mi.id_movimiento,
-
-        mi.tipo_movimiento,
-
-        mi.cantidad_bultos,
-
-        mi.fecha_movimiento,
-
-        b.nombre_bodega,
-
-        u.nombre_completo,
-
-        mi.observaciones
-
-    FROM entrada e
-
-    JOIN movimiento_inventario mi
-        ON mi.id_movimiento = e.id_movimiento
-
-    JOIN stock s
-        ON s.id_stock = e.id_stock
-
-    JOIN producto p
-        ON p.id_producto = s.id_producto
-
-    JOIN bodega b
-        ON b.id_bodega = mi.id_bodega
-
-    JOIN usuario u
-        ON u.id_usuario = mi.id_usuario
-
-    WHERE e.numero_lote = p_numero_lote
-
-    ORDER BY mi.fecha_movimiento DESC;
-
-END //
-
-DELIMITER ;
-
-
-
--- ============================================================
--- RQF059 - Buscar por bodega
--- Permite ver todos los movimientos de una bodega
--- ============================================================
-
-DELIMITER //
-
-CREATE PROCEDURE buscar_movimientos_por_bodega(
-
-    IN p_id_bodega INT
-
-)
-BEGIN
-
-    SELECT
-
-        mi.id_movimiento,
-
-        b.nombre_bodega,
-
-        p.nombre_sal_mineralizada,
-
-        mi.tipo_movimiento,
-
-        mi.cantidad_bultos,
-
-        mi.fecha_movimiento,
-
-        u.nombre_completo,
-
-        mi.observaciones
-
-    FROM movimiento_inventario mi
-
-    JOIN bodega b
-        ON b.id_bodega = mi.id_bodega
-
-    JOIN producto p
-        ON p.id_producto = mi.id_producto
-
-    JOIN usuario u
-        ON u.id_usuario = mi.id_usuario
-
-    WHERE mi.id_bodega = p_id_bodega
-
-    ORDER BY mi.fecha_movimiento DESC;
-
-END //
-
-DELIMITER ;
-
-
-
--- ============================================================
--- RQF060 - Buscar por tipo de movimiento
--- Permite ver solo entradas, salidas, devoluciones, etc
--- ============================================================
-
-DELIMITER //
-
-CREATE PROCEDURE buscar_movimientos_por_tipo(
-
-    IN p_tipo_movimiento ENUM(
-        'ENTRADA',
-        'SALIDA',
-        'AJUSTE',
-        'DEVOLUCION'
-    )
-
-)
-BEGIN
-
-    SELECT
-
-        mi.id_movimiento,
-
-        mi.tipo_movimiento,
-
-        p.nombre_sal_mineralizada,
-
-        mi.cantidad_bultos,
-
-        mi.fecha_movimiento,
-
-        b.nombre_bodega,
-
-        u.nombre_completo,
-
-        mi.observaciones
-
-    FROM movimiento_inventario mi
-
-    JOIN producto p
-        ON p.id_producto = mi.id_producto
-
-    JOIN bodega b
-        ON b.id_bodega = mi.id_bodega
-
-    JOIN usuario u
-        ON u.id_usuario = mi.id_usuario
-
-    WHERE mi.tipo_movimiento = p_tipo_movimiento
-
-    ORDER BY mi.fecha_movimiento DESC;
-
-END //
-
-DELIMITER ;
-
-
-
--- ============================================================
--- RQF061 - Buscar por quién hizo el movimiento
--- Permite ver todos los movimientos hechos por un usuario
--- ============================================================
-
-DELIMITER //
-
-CREATE PROCEDURE buscar_movimientos_por_usuario(
-
-    IN p_id_usuario INT
-
-)
-BEGIN
-
-    SELECT
-
-        mi.id_movimiento,
-
-        u.nombre_completo,
-
-        p.nombre_sal_mineralizada,
-
-        mi.tipo_movimiento,
-
-        mi.cantidad_bultos,
-
-        mi.fecha_movimiento,
-
-        b.nombre_bodega,
-
-        mi.observaciones
-
-    FROM movimiento_inventario mi
-
-    JOIN usuario u
-        ON u.id_usuario = mi.id_usuario
-
-    JOIN producto p
-        ON p.id_producto = mi.id_producto
-
-    JOIN bodega b
-        ON b.id_bodega = mi.id_bodega
-
-    WHERE mi.id_usuario = p_id_usuario
-
-    ORDER BY mi.fecha_movimiento DESC;
-
-END //
-
-DELIMITER ;
-
-
-
--- ============================================================
--- RQF062 - Buscar por fechas
--- Permite ver movimientos entre dos fechas
--- ============================================================
-
-DELIMITER //
-
-CREATE PROCEDURE buscar_movimientos_por_fechas(
-
-    IN p_fecha_inicio DATE,
-    IN p_fecha_fin    DATE
-
-)
-BEGIN
-
-    SELECT
-
-        mi.id_movimiento,
-
-        p.nombre_sal_mineralizada,
-
-        mi.tipo_movimiento,
-
-        mi.cantidad_bultos,
-
-        mi.fecha_movimiento,
-
-        b.nombre_bodega,
-
-        u.nombre_completo,
-
-        mi.observaciones
-
-    FROM movimiento_inventario mi
-
-    JOIN producto p
-        ON p.id_producto = mi.id_producto
-
-    JOIN bodega b
-        ON b.id_bodega = mi.id_bodega
-
-    JOIN usuario u
-        ON u.id_usuario = mi.id_usuario
-
-    WHERE DATE(mi.fecha_movimiento)
-          BETWEEN p_fecha_inicio AND p_fecha_fin
-
-    ORDER BY mi.fecha_movimiento DESC;
-
-END //
-
-DELIMITER ;
-
-
-
--- ============================================================
--- RQF063 - Ver stock de una fecha pasada
--- Calcula cuánto stock había en una fecha específica
--- ============================================================
-
-DELIMITER //
-
-CREATE PROCEDURE ver_stock_fecha_pasada(
-
-    IN p_id_producto INT,
-    IN p_id_bodega   INT,
-    IN p_fecha       DATE
-
-)
-BEGIN
-
-    SELECT
-
-        p.nombre_sal_mineralizada,
-
-        b.nombre_bodega,
-
-        COALESCE(
-
-            SUM(
-
-                CASE
-
-                    WHEN mi.tipo_movimiento IN (
-                        'ENTRADA',
-                        'DEVOLUCION'
-                    )
-                    THEN mi.cantidad_bultos
-
-                    WHEN mi.tipo_movimiento = 'SALIDA'
-                    THEN -mi.cantidad_bultos
-
-                    ELSE 0
-
-                END
-
-            ),
-
-            0
-
-        ) AS stock_hasta_fecha
-
-    FROM movimiento_inventario mi
-
-    JOIN producto p
-        ON p.id_producto = mi.id_producto
-
-    JOIN bodega b
-        ON b.id_bodega = mi.id_bodega
-
-    WHERE mi.id_producto = p_id_producto
-      AND mi.id_bodega = p_id_bodega
-      AND DATE(mi.fecha_movimiento) <= p_fecha
-
-    GROUP BY
-        p.nombre_sal_mineralizada,
-        b.nombre_bodega;
-
-END //
-
-DELIMITER ;
