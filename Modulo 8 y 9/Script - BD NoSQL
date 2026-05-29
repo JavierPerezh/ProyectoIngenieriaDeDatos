@@ -1064,19 +1064,19 @@ print("  movimientos : " + db.movimientos.countDocuments());
 print("  ventas      : " + db.ventas.countDocuments());
 print("══════════════════════════════════════════\n");
 
-use("salinas_del_cravo");
- 
 
 // ============================================================
 // MÓDULO 8 — Alertas automáticas
 // MÓDULO 9 — Consultas de trazabilidad y búsqueda
 // salinas_del_cravo
 // ============================================================
+use("salinas_del_cravo");
 
 // ─────────────────────────────────────────────────────────────
-// HELPER — inserta alerta evitando duplicados activos
+// HELPER: inserta alerta solo si no existe una activa igual
+// (evita duplicados en ejecuciones repetidas)
 // ─────────────────────────────────────────────────────────────
-function insertarAlerta(doc) {
+function insertarAlertaSiNoExiste(doc) {
   const existe = db.alertas.findOne({
     tipo:         doc.tipo,
     id_producto:  doc.id_producto  || null,
@@ -1085,123 +1085,191 @@ function insertarAlerta(doc) {
   });
   if (!existe) {
     db.alertas.insertOne(doc);
-    print("[ALERTA CREADA] " + doc.tipo + " — " + doc.mensaje);
+    print("  ✔ Alerta insertada: " + doc.mensaje);
+  } else {
+    print("  ↷ Alerta ya existe (omitida): " + doc.mensaje);
   }
 }
- 
-// ─────────────────────────────────────────────────────────────
-// TRIGGER RQF060 — Stock bajo en bodega
-// Se activa cuando un documento de stock es insertado o
-// actualizado y cantidad_actual < stock_minimo_seguridad
-// ─────────────────────────────────────────────────────────────
-function evaluarStockBajo(docCompleto) {
-  if (docCompleto.tipo_ubicacion !== "BODEGA") return;
-  if (docCompleto.cantidad_actual >= docCompleto.stock_minimo_seguridad) return;
- 
-  const producto = db.productos.findOne({ _id: docCompleto.id_producto });
-  const bodega   = db.bodegas.findOne({ _id: docCompleto.id_ubicacion });
- 
-  insertarAlerta({
+
+
+// ╔═══════════════════════════════════════════════════════════╗
+// ║  RQF #060 — Alerta de stock bajo                         ║
+// ║  Condición: cantidad_actual < stock_minimo_seguridad      ║
+// ║  en cualquier registro BODEGA de la colección stock       ║
+// ╚═══════════════════════════════════════════════════════════╝
+print("\n── RQF060: Alerta de stock bajo ──");
+
+db.stock.find({
+  tipo_ubicacion: "BODEGA",
+  $expr: { $lt: ["$cantidad_actual", "$stock_minimo_seguridad"] }
+}).forEach(function(s) {
+  const producto = db.productos.findOne({ _id: s.id_producto });
+  const bodega   = db.bodegas.findOne({ _id: s.id_ubicacion });
+
+  insertarAlertaSiNoExiste({
     tipo:           "STOCK_BAJO",
-    id_producto:    docCompleto.id_producto,
-    id_lote:        docCompleto.id_lote,
-    id_ubicacion:   docCompleto.id_ubicacion,
+    id_producto:    s.id_producto,
+    id_lote:        s.id_lote,
+    id_ubicacion:   s.id_ubicacion,
     tipo_ubicacion: "BODEGA",
-    mensaje: "Stock bajo en bodega \"" + (bodega?.nombre_bodega ?? docCompleto.id_ubicacion) +
-             "\": \"" + (producto?.nombre_sal_mineralizada ?? docCompleto.id_producto) +
-             "\" — " + docCompleto.cantidad_actual + " bultos (mínimo: " +
-             docCompleto.stock_minimo_seguridad + ").",
+    mensaje: "Stock bajo en bodega \"" + (bodega ? bodega.nombre_bodega : s.id_ubicacion) +
+             "\": producto \"" + (producto ? producto.nombre_sal_mineralizada : s.id_producto) +
+             "\" tiene " + s.cantidad_actual + " bultos (mínimo: " + s.stock_minimo_seguridad + ").",
     fecha_creacion: new Date(),
     leida:    false,
     resuelta: false
   });
-}
-
-const pipeline = [
-  { $match: { operationType: { $in: ["insert", "update", "replace"] } } }
-];
- 
-const cursor = db.stock.watch(pipeline, { fullDocument: "updateLookup" });
- 
-while (!cursor.isClosed()) {
-  const evento = cursor.tryNext();
-  if (!evento) {
-    sleep(500);
-    continue;
-  }
- 
-  const doc = evento.fullDocument;
-  if (!doc) continue;
- 
-  print("[CAMBIO DETECTADO] operación: " + evento.operationType +
-        " | lote: " + doc.id_lote);
- 
-  evaluarStockBajo(doc);
-  evaluarBodegaLlena(doc.id_ubicacion);
-}
+});
 
 
-// ─────────────────────────────────────────────────────────────
-// TRIGGER RQF061 — Bodega llena
-// Se activa cuando un documento de stock es insertado o
-// actualizado y la suma total de la bodega >= capacidad máxima
-// ─────────────────────────────────────────────────────────────
-function evaluarBodegaLlena(idUbicacion) {
-  const bodega = db.bodegas.findOne({ _id: idUbicacion });
+// ╔═══════════════════════════════════════════════════════════╗
+// ║  RQF #061 — Alerta de bodega llena                       ║
+// ║  Condición: suma de cantidad_actual por bodega >=         ║
+// ║             capacidad_maxima_bultos de esa bodega         ║
+// ╚═══════════════════════════════════════════════════════════╝
+print("\n── RQF061: Alerta de bodega llena ──");
+
+db.stock.aggregate([
+  { $match: { tipo_ubicacion: "BODEGA" } },
+  { $group: {
+      _id: "$id_ubicacion",
+      total_bultos: { $sum: "$cantidad_actual" }
+  }}
+]).forEach(function(r) {
+  const bodega = db.bodegas.findOne({ _id: r._id });
   if (!bodega) return;
- 
-  const resultado = db.stock.aggregate([
-    { $match: { tipo_ubicacion: "BODEGA", id_ubicacion: idUbicacion } },
-    { $group: { _id: null, total: { $sum: "$cantidad_actual" } } }
-  ]).toArray();
- 
-  const total = resultado[0]?.total ?? 0;
-  if (total < bodega.capacidad_maxima_bultos) return;
- 
-  insertarAlerta({
-    tipo:           "BODEGA_LLENA",
-    id_producto:    null,
-    id_lote:        null,
-    id_ubicacion:   idUbicacion,
-    tipo_ubicacion: "BODEGA",
-    mensaje: "Bodega \"" + bodega.nombre_bodega + "\" llena: " +
-             total + " / " + bodega.capacidad_maxima_bultos + " bultos.",
-    fecha_creacion: new Date(),
-    leida:    false,
-    resuelta: false
-  });
-}
+
+  if (r.total_bultos >= bodega.capacidad_maxima_bultos) {
+    insertarAlertaSiNoExiste({
+      tipo:           "BODEGA_LLENA",
+      id_producto:    null,
+      id_lote:        null,
+      id_ubicacion:   r._id,
+      tipo_ubicacion: "BODEGA",
+      mensaje: "Bodega \"" + bodega.nombre_bodega + "\" está llena o supera su capacidad: " +
+               r.total_bultos + " / " + bodega.capacidad_maxima_bultos + " bultos.",
+      fecha_creacion: new Date(),
+      leida:    false,
+      resuelta: false
+    });
+  }
+});
+
 
 // ─────────────────────────────────────────────────────────────
 //  PRUEBAS MÓDULO 8
 // ─────────────────────────────────────────────────────────────
 
-const bodId = {
-  1: new ObjectId("dddddd000000000000000001"), // Bodega Central  cap: 5000
-  3: new ObjectId("dddddd000000000000000003"), // Bodega Sur      cap: 2000
-};
+// ── PRUEBA RQF060 ─────────────────────────────────────────────
+print("\n══ PRUEBA RQF060 — Bajar stock por debajo del mínimo ══");
 
-// ── PRUEBA RQF060 — bajar cantidad_actual por debajo del mínimo ──
-print("Bajando cantidad_actual por debajo del mínimo en Bodega Central...");
-db.stock.updateOne(
-  { id_ubicacion: bodId[1], tipo_ubicacion: "BODEGA" },
-  { $set: { cantidad_actual: NumberInt(0) } }
-);
-print("Hecho. El trigger debe haber creado una alerta STOCK_BAJO.\n");
- 
-// ── PRUEBA RQF061 — llenar Bodega Sur ──
-print("Subiendo cantidad_actual para llenar Bodega Sur (cap: 2000)...");
-db.stock.updateMany(
-  { id_ubicacion: bodId[3], tipo_ubicacion: "BODEGA" },
-  { $set: { cantidad_actual: NumberInt(700) } }
-);
-print("Hecho. El trigger debe haber creado una alerta BODEGA_LLENA.\n");
- 
-// ── Ver alertas generadas ──
-print("══ Alertas activas ══");
-db.alertas.find({ resuelta: false }).forEach(a =>
-  print("  [" + a.tipo + "] " + a.mensaje)
-);
+// 1. Tomamos el primer registro BODEGA que tenga stock_minimo_seguridad > 0
+const stockPrueba060 = db.stock.findOne({
+  tipo_ubicacion: "BODEGA",
+  stock_minimo_seguridad: { $gt: 0 }
+});
+
+if (stockPrueba060) {
+  // 2. Forzamos cantidad_actual a 0 (definitivamente bajo el mínimo)
+  db.stock.updateOne(
+    { _id: stockPrueba060._id },
+    { $set: { cantidad_actual: 0 } }
+  );
+  print("  Cantidad actualizada a 0 para id_lote=" + stockPrueba060.id_lote);
+
+  // 3. Ejecutamos la lógica de alerta sobre ese registro puntual
+  const s        = db.stock.findOne({ _id: stockPrueba060._id });
+  const producto = db.productos.findOne({ _id: s.id_producto });
+  const bodega   = db.bodegas.findOne({ _id: s.id_ubicacion });
+  insertarAlertaSiNoExiste({
+    tipo:           "STOCK_BAJO",
+    id_producto:    s.id_producto,
+    id_lote:        s.id_lote,
+    id_ubicacion:   s.id_ubicacion,
+    tipo_ubicacion: "BODEGA",
+    mensaje: "[PRUEBA] Stock bajo en bodega \"" + (bodega ? bodega.nombre_bodega : s.id_ubicacion) +
+             "\": producto \"" + (producto ? producto.nombre_sal_mineralizada : s.id_producto) +
+             "\" tiene " + s.cantidad_actual + " bultos (mínimo: " + s.stock_minimo_seguridad + ").",
+    fecha_creacion: new Date(),
+    leida:    false,
+    resuelta: false
+  });
+
+  // 4. Verificar que la alerta quedó en la colección
+  print("  Alertas STOCK_BAJO activas:");
+  db.alertas.find({ tipo: "STOCK_BAJO", resuelta: false })
+            .forEach(a => print("    →", a.mensaje));
+
+  // 5. Restaurar valor original
+  db.stock.updateOne(
+    { _id: stockPrueba060._id },
+    { $set: { cantidad_actual: stockPrueba060.cantidad_actual } }
+  );
+  print("  Valor original restaurado (" + stockPrueba060.cantidad_actual + " bultos).");
+
+} else {
+  print("  No hay registros BODEGA con stock_minimo_seguridad > 0 para la prueba.");
+}
+
+
+// ── PRUEBA RQF061 ─────────────────────────────────────────────
+print("\n══ PRUEBA RQF061 — Llenar una bodega ══");
+
+// 1. Usamos Bodega Central (capacidad_maxima_bultos = 5000)
+const bodegaPrueba = db.bodegas.findOne({ nombre_bodega: "Bodega Central" });
+
+if (bodegaPrueba) {
+  // 2. Creamos un registro de stock temporal que sature la bodega
+  const stockTempId = new ObjectId();
+  const productoRef = db.productos.findOne({});
+  const loteRef     = db.lotes.findOne({ id_bodega: bodegaPrueba._id });
+
+  db.stock.insertOne({
+    _id:                   stockTempId,
+    tipo_ubicacion:        "BODEGA",
+    id_ubicacion:          bodegaPrueba._id,
+    id_producto:           productoRef._id,
+    id_lote:               loteRef ? loteRef._id : new ObjectId(),
+    cantidad_actual:       bodegaPrueba.capacidad_maxima_bultos,  // llena exactamente
+    stock_minimo_seguridad: 10,
+    fecha_ultima_auditoria: new Date()
+  });
+  print("  Stock temporal insertado (" + bodegaPrueba.capacidad_maxima_bultos + " bultos en Bodega Central).");
+
+  // 3. Ejecutar verificación de bodega llena para esa bodega
+  const totalBodega = db.stock.aggregate([
+    { $match: { tipo_ubicacion: "BODEGA", id_ubicacion: bodegaPrueba._id } },
+    { $group: { _id: null, total: { $sum: "$cantidad_actual" } } }
+  ]).toArray()[0];
+
+  if (totalBodega && totalBodega.total >= bodegaPrueba.capacidad_maxima_bultos) {
+    insertarAlertaSiNoExiste({
+      tipo:           "BODEGA_LLENA",
+      id_producto:    null,
+      id_lote:        null,
+      id_ubicacion:   bodegaPrueba._id,
+      tipo_ubicacion: "BODEGA",
+      mensaje: "[PRUEBA] Bodega \"" + bodegaPrueba.nombre_bodega + "\" está llena: " +
+               totalBodega.total + " / " + bodegaPrueba.capacidad_maxima_bultos + " bultos.",
+      fecha_creacion: new Date(),
+      leida:    false,
+      resuelta: false
+    });
+  }
+
+  // 4. Verificar alerta
+  print("  Alertas BODEGA_LLENA activas:");
+  db.alertas.find({ tipo: "BODEGA_LLENA", resuelta: false })
+            .forEach(a => print("    →", a.mensaje));
+
+  // 5. Limpiar registro temporal
+  db.stock.deleteOne({ _id: stockTempId });
+  print("  Stock temporal eliminado.");
+
+} else {
+  print("  Bodega Central no encontrada.");
+}
+
 
 // ═══════════════════════════════════════════════════════════════
 //  MÓDULO 9 — Consultas de búsqueda y trazabilidad
@@ -1522,3 +1590,4 @@ function rqf070_trazabilidadLote(numeroLote) {
 // PRUEBA RQF070
 rqf070_trazabilidadLote("LOTE-001");
 rqf070_trazabilidadLote("LOTE-003");
+
