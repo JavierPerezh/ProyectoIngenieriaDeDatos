@@ -1,661 +1,617 @@
-// ============================================================
-// Base de datos: salinas_del_cravo_v2 (MongoDB Shell)
-// ============================================================
-use("salinas_del_cravo_v2");
+
+
+const db = db.getSiblingDB("salinas_del_cravo");
 
 // ------------------------------------------------------------
-// Colección cliente
+// 0. Funciones auxiliares (internas)
 // ------------------------------------------------------------
-db.createCollection("cliente", {
-  validator: {
-    $jsonSchema: {
-      bsonType: "object",
-      required: ["nit_cedula", "nombre_cliente", "tipo"],
-      properties: {
-        nit_cedula:          { bsonType: "string" },
-        nombre_cliente:      { bsonType: "string" },
-        telefono:            { bsonType: ["string", "null"] },
-        email:               { bsonType: ["string", "null"] },
-        direccion_entrega:   { bsonType: ["string", "null"] },
-        tipo:                { enum: ["VETERINARIA", "GANADERO"] },
-        estado_activo:       { bsonType: "bool" }
-      }
-    }
-  }
-});
-db.cliente.createIndex({ nit_cedula: 1 }, { unique: true });
-db.cliente.createIndex({ email: 1 }, { unique: true, sparse: true });
 
-// ------------------------------------------------------------
-// Colección usuario
-// ------------------------------------------------------------
-db.createCollection("usuario", {
-  validator: {
-    $jsonSchema: {
-      bsonType: "object",
-      required: ["nombre_completo", "username", "email", "password_hash", "rol"],
-      properties: {
-        nombre_completo: { bsonType: "string" },
-        username:        { bsonType: "string" },
-        email:           { bsonType: "string" },
-        password_hash:   { bsonType: "string" },
-        rol:             { enum: ["ADMIN", "VENDEDOR"] },
-        estado_activo:   { bsonType: "bool" }
-      }
-    }
-  }
-});
-db.usuario.createIndex({ username: 1 }, { unique: true });
-db.usuario.createIndex({ email: 1 }, { unique: true });
-
-// ------------------------------------------------------------
-// Colección categoria
-// ------------------------------------------------------------
-db.createCollection("categoria", {
-  validator: {
-    $jsonSchema: {
-      bsonType: "object",
-      required: ["nombre_categoria", "descripcion_uso", "porcentaje_fosforo"],
-      properties: {
-        nombre_categoria:   { bsonType: "string" },
-        descripcion_uso:    { bsonType: "string" },
-        porcentaje_fosforo: { bsonType: "double", minimum: 0, maximum: 100 }
-      }
-    }
-  }
-});
-db.categoria.createIndex({ nombre_categoria: 1 }, { unique: true });
-
-// ------------------------------------------------------------
-// Colección producto
-// ------------------------------------------------------------
-db.createCollection("producto", {
-  validator: {
-    $jsonSchema: {
-      bsonType: "object",
-      required: ["id_categoria", "nombre_sal_mineralizada", "peso_bulto_kg", "unidad_medida"],
-      properties: {
-        id_categoria:            { bsonType: "int" },
-        nombre_sal_mineralizada: { bsonType: "string" },
-        peso_bulto_kg:           { bsonType: "double", minimum: 0, exclusiveMinimum: true },
-        unidad_medida:           { bsonType: "string" },
-        descontinuado:           { bsonType: "bool" }
-      }
-    }
-  }
-});
-
-// ------------------------------------------------------------
-// Colección bodega
-// ------------------------------------------------------------
-db.createCollection("bodega", {
-  validator: {
-    $jsonSchema: {
-      bsonType: "object",
-      required: ["nombre_bodega", "direccion_fisica", "capacidad_maxima_bultos"],
-      properties: {
-        nombre_bodega:            { bsonType: "string" },
-        direccion_fisica:         { bsonType: "string" },
-        capacidad_maxima_bultos:  { bsonType: "int", minimum: 1 },
-        estado_activo:            { bsonType: "bool" }
-      }
-    }
-  }
-});
-
-// ------------------------------------------------------------
-// Colección stock
-// ------------------------------------------------------------
-db.createCollection("stock", {
-  validator: {
-    $jsonSchema: {
-      bsonType: "object",
-      required: ["id_producto", "id_bodega", "fecha_ultima_auditoria"],
-      properties: {
-        id_producto:             { bsonType: "int" },
-        id_bodega:               { bsonType: "int" },
-        cantidad_actual:         { bsonType: "int", minimum: 0 },
-        stock_minimo_seguridad:  { bsonType: "int", minimum: 0 },
-        fecha_ultima_auditoria:  { bsonType: "date" }
-      }
-    }
-  }
-});
-db.stock.createIndex({ id_producto: 1, id_bodega: 1 }, { unique: true });
-
-// ------------------------------------------------------------
-// Colección reporte
-// ------------------------------------------------------------
-db.createCollection("reporte", {
-  validator: {
-    $jsonSchema: {
-      bsonType: "object",
-      required: ["id_usuario", "tipo_reporte"],
-      properties: {
-        id_usuario:    { bsonType: "int" },
-        fecha_emision: { bsonType: "date" },
-        rango_fechas:  { bsonType: ["string", "null"] },
-        tipo_reporte:  { enum: ["STOCK", "SALIDAS", "ENTRADAS", "HISTORIAL", "PERDIDAS", "VENTAS"] },
-        resumen:       { bsonType: ["string", "null"] }
-      }
-    }
-  }
-});
-
-// ------------------------------------------------------------
-// Colección movimiento_inventario
-// ------------------------------------------------------------
-db.createCollection("movimiento_inventario", {
-  validator: {
-    $jsonSchema: {
-      bsonType: "object",
-      required: ["id_producto", "id_usuario", "id_bodega", "tipo_movimiento", "cantidad_bultos"],
-      properties: {
-        id_producto:      { bsonType: "int" },
-        id_usuario:       { bsonType: "int" },
-        id_bodega:        { bsonType: "int" },
-        id_reporte:       { bsonType: ["int", "null"] },
-        fecha_movimiento: { bsonType: "date" },
-        tipo_movimiento:  { enum: ["ENTRADA", "SALIDA", "AJUSTE", "DEVOLUCION", "PERDIDA", "DAÑO", "TRASLADO", "VENTA"] },
-        cantidad_bultos:  { bsonType: "int", minimum: 1 },
-        observaciones:    { bsonType: ["string", "null"] }
-      }
-    }
-  }
-});
-
-// ------------------------------------------------------------
-// Colección entrada
-// ------------------------------------------------------------
-db.createCollection("entrada", {
-  validator: {
-    $jsonSchema: {
-      bsonType: "object",
-      required: ["id_stock", "id_usuario", "id_bodega", "id_movimiento", "cantidad_ingresada", "tipo_ingreso"],
-      properties: {
-        id_stock:            { bsonType: "int" },
-        id_usuario:          { bsonType: "int" },
-        id_bodega:           { bsonType: "int" },
-        id_movimiento:       { bsonType: "int" },
-        id_proveedor:        { bsonType: ["int", "null"] },
-        fecha_entrada:       { bsonType: "date" },
-        cantidad_ingresada:  { bsonType: "int", minimum: 1 },
-        tipo_ingreso:        { bsonType: "string" },
-        numero_lote:         { bsonType: ["string", "null"] },
-        observaciones:       { bsonType: ["string", "null"] }
-      }
-    }
-  }
-});
-
-// ------------------------------------------------------------
-// Colección salida (egreso genérico, conectado a una venta)
-// ------------------------------------------------------------
-db.createCollection("salida", {
-  validator: {
-    $jsonSchema: {
-      bsonType: "object",
-      required: ["id_usuario", "id_stock", "id_movimiento", "cantidad_salida"],
-      properties: {
-        id_usuario:        { bsonType: "int" },
-        id_stock:          { bsonType: "int" },
-        id_movimiento:     { bsonType: "int" },
-        fecha_salida:      { bsonType: "date" },
-        cantidad_salida:   { bsonType: "int", minimum: 1 },
-        tipo_mov_salida:   { bsonType: ["string", "null"] },
-        lote:              { bsonType: ["string", "null"] },
-        observaciones:     { bsonType: ["string", "null"] }
-      }
-    }
-  }
-});
-
-// ------------------------------------------------------------
-// Colección venta
-// ------------------------------------------------------------
-db.createCollection("venta", {
-  validator: {
-    $jsonSchema: {
-      bsonType: "object",
-      required: ["id_cliente", "id_usuario", "id_salida"],
-      properties: {
-        id_cliente:    { bsonType: "int" },
-        id_usuario:    { bsonType: "int" },
-        id_salida:     { bsonType: "int" },
-        fecha_venta:   { bsonType: "date" },
-        observaciones: { bsonType: ["string", "null"] },
-        estado:        { enum: ["ACTIVA", "ANULADA"] }
-      }
-    }
-  }
-});
-
-// ------------------------------------------------------------
-// Colección devolucion
-// ------------------------------------------------------------
-db.createCollection("devolucion", {
-  validator: {
-    $jsonSchema: {
-      bsonType: "object",
-      required: ["id_stock", "id_movimiento_relacionado", "id_bodega", "id_cliente", "id_usuario", "cantidad_devuelta", "estado_producto"],
-      properties: {
-        id_stock:                   { bsonType: "int" },
-        id_movimiento_relacionado:  { bsonType: "int" },
-        id_bodega:                  { bsonType: "int" },
-        id_cliente:                 { bsonType: "int" },
-        id_usuario:                 { bsonType: "int" },
-        fecha_devolucion:           { bsonType: "date" },
-        cantidad_devuelta:          { bsonType: "int", minimum: 1 },
-        motivo_devolucion:          { bsonType: ["string", "null"] },
-        estado_producto:            { enum: ["BUENO", "DAÑADO", "PARCIAL"] },
-        genera_entrada:             { bsonType: "bool" },
-        observaciones:              { bsonType: ["string", "null"] }
-      }
-    }
-  }
-});
-
-// ============================================================
-// FUNCIONES PARA MÓDULOS STOCK, MOVIMIENTOS Y VENTAS (MongoDB)
-// ============================================================
-
-// Conexión a la base de datos (ejecutar dentro de mongosh)
-use("salinas_del_cravo_v2");
-
-// ---------- HELPERS ----------
-function obtenerStock(idProducto, idBodega) {
-    return db.stock.findOne({ id_producto: idProducto, id_bodega: idBodega });
+/**
+ * Obtiene el documento de stock para una combinación (ubicación, producto, lote)
+ */
+function getStock(tipo_ubicacion, id_ubicacion, id_producto, id_lote, session = null) {
+    return db.stock.findOne({
+        tipo_ubicacion,
+        id_ubicacion: ObjectId(id_ubicacion),
+        id_producto: ObjectId(id_producto),
+        id_lote: ObjectId(id_lote)
+    }, { session });
 }
 
-function actualizarStock(idProducto, idBodega, delta, session) {
+/**
+ * Aplica un movimiento y actualiza el stock correspondiente.
+ * Debe ejecutarse dentro de una sesión transaccional.
+ *
+ * @param {Object} movimiento - Documento completo del movimiento (sin _id, se genera)
+ * @param {Object} session - Sesión activa de transacción
+ * @returns {ObjectId} ID del movimiento insertado
+ */
+function insertMovementAndUpdateStock(movimiento, session) {
+    // Asegurar ObjectId en referencias
+    movimiento._id = new ObjectId();
+    movimiento.id_producto = ObjectId(movimiento.id_producto);
+    movimiento.id_lote = ObjectId(movimiento.id_lote);
+    movimiento.id_usuario = ObjectId(movimiento.id_usuario);
+    movimiento.ubicacion.id_ubicacion = ObjectId(movimiento.ubicacion.id_ubicacion);
+    movimiento.fecha_movimiento = movimiento.fecha_movimiento || new Date();
+
+    // Determinar signo para el stock
+    const tiposAumentan = ["ENTRADA", "ABASTECIMIENTO", "DEVOLUCION"];
+    const delta = tiposAumentan.includes(movimiento.tipo_movimiento)
+        ? movimiento.cantidad
+        : -movimiento.cantidad;
+
+    // Insertar el movimiento
+    db.movimientos.insertOne(movimiento, { session });
+
+    // Upsert del stock
+    db.stock.updateOne(
+        {
+            tipo_ubicacion: movimiento.ubicacion.tipo,
+            id_ubicacion: movimiento.ubicacion.id_ubicacion,
+            id_producto: movimiento.id_producto,
+            id_lote: movimiento.id_lote
+        },
+        {
+            $inc: { cantidad_actual: delta },
+            $set: { fecha_ultima_auditoria: new Date() },
+            $setOnInsert: {
+                tipo_ubicacion: movimiento.ubicacion.tipo,
+                id_ubicacion: movimiento.ubicacion.id_ubicacion,
+                id_producto: movimiento.id_producto,
+                id_lote: movimiento.id_lote,
+                stock_minimo_seguridad: 0
+            }
+        },
+        { upsert: true, session }
+    );
+
+    return movimiento._id;
+}
+
+// ------------------------------------------------------------
+// 1. MÓDULO 5 – Stock y existencias (consultas)
+// ------------------------------------------------------------
+
+/**
+ * RQF032 – Ver existencias por producto, bodega/tienda y lote.
+ */
+function verExistenciasProducto() {
+    return db.stock.aggregate([
+        {
+            $lookup: {
+                from: "productos",
+                localField: "id_producto",
+                foreignField: "_id",
+                as: "producto"
+            }
+        },
+        { $unwind: "$producto" },
+        {
+            $lookup: {
+                from: "lotes",
+                localField: "id_lote",
+                foreignField: "_id",
+                as: "lote"
+            }
+        },
+        { $unwind: "$lote" },
+        {
+            $project: {
+                _id: 0,
+                producto: "$producto.nombre_sal_mineralizada",
+                codigo: "$producto.codigo_tipo_sal",
+                lote: "$lote.numero_lote",
+                tipo_ubicacion: 1,
+                id_ubicacion: 1,
+                cantidad_actual: 1,
+                stock_minimo_seguridad: 1
+            }
+        }
+    ]).toArray();
+}
+
+/**
+ * RQF033 – Reconstruir stock a partir de todos los movimientos (saldo contable).
+ */
+function calcularStockDesdeMovimientos() {
+    return db.movimientos.aggregate([
+        {
+            $group: {
+                _id: {
+                    producto: "$id_producto",
+                    lote: "$id_lote",
+                    ubicacion_tipo: "$ubicacion.tipo",
+                    ubicacion_id: "$ubicacion.id_ubicacion"
+                },
+                saldo: {
+                    $sum: {
+                        $cond: [
+                            { $in: ["$tipo_movimiento", ["ENTRADA", "ABASTECIMIENTO", "DEVOLUCION"]] },
+                            "$cantidad",
+                            { $multiply: ["$cantidad", -1] }
+                        ]
+                    }
+                }
+            }
+        }
+    ]).toArray();
+}
+
+/**
+ * RQF034 / RQF035 – Establecer o modificar el stock mínimo de seguridad.
+ */
+function establecerStockMinimo(id_producto, tipo_ubicacion, id_ubicacion, id_lote, nuevo_minimo) {
     return db.stock.updateOne(
-        { id_producto: idProducto, id_bodega: idBodega },
-        { $inc: { cantidad_actual: delta }, $set: { fecha_ultima_auditoria: new Date() } },
-        { session }
+        {
+            tipo_ubicacion,
+            id_ubicacion: ObjectId(id_ubicacion),
+            id_producto: ObjectId(id_producto),
+            id_lote: ObjectId(id_lote)
+        },
+        {
+            $set: { stock_minimo_seguridad: nuevo_minimo }
+        }
     );
 }
 
-// ------------------------------------------------------------
-// RQF039: Registrar entrada
-// ------------------------------------------------------------
-function registrarEntrada(idProducto, idBodega, cantidad, idUsuario, tipoIngreso, numeroLote, idProveedor, observaciones, session) {
-    if (cantidad <= 0) throw new Error("RQF050: Cantidad > 0");
+/**
+ * RQF036 – Total de bultos por tipo de sal (suma todas las ubicaciones).
+ */
+function verTotalPorTipoSal() {
+    return db.stock.aggregate([
+        {
+            $group: {
+                _id: "$id_producto",
+                total_bultos: { $sum: "$cantidad_actual" }
+            }
+        },
+        {
+            $lookup: {
+                from: "productos",
+                localField: "_id",
+                foreignField: "_id",
+                as: "producto"
+            }
+        },
+        { $unwind: "$producto" },
+        {
+            $project: {
+                _id: 0,
+                codigo: "$producto.codigo_tipo_sal",
+                nombre: "$producto.nombre_sal_mineralizada",
+                total_bultos: 1
+            }
+        }
+    ]).toArray();
+}
 
-    // Asegurar que exista documento stock
-    let stock = obtenerStock(idProducto, idBodega);
-    if (!stock) {
-        db.stock.insertOne({
-            id_producto: idProducto,
-            id_bodega: idBodega,
-            cantidad_actual: 0,
-            stock_minimo_seguridad: 0,
-            fecha_ultima_auditoria: new Date()
-        }, { session });
-        stock = obtenerStock(idProducto, idBodega);
+/**
+ * RQF037 – Total de bultos por bodega (suma todos los productos).
+ */
+function verTotalPorBodega() {
+    return db.stock.aggregate([
+        { $match: { tipo_ubicacion: "BODEGA" } },
+        {
+            $group: {
+                _id: "$id_ubicacion",
+                total_bultos: { $sum: "$cantidad_actual" }
+            }
+        },
+        {
+            $lookup: {
+                from: "bodegas",
+                localField: "_id",
+                foreignField: "_id",
+                as: "bodega"
+            }
+        },
+        { $unwind: "$bodega" },
+        {
+            $project: {
+                _id: 0,
+                bodega: "$bodega.nombre_bodega",
+                total_bultos: 1
+            }
+        }
+    ]).toArray();
+}
+
+// RQF038 – No cambiar stock directamente: se implementa a nivel de aplicación,
+//          pero aquí dejamos una advertencia de que nunca se debe usar un update directo sobre stock.
+
+// ------------------------------------------------------------
+// 2. MÓDULO 6 – Movimientos (operaciones transaccionales)
+// ------------------------------------------------------------
+
+/**
+ * RQF039 – Registrar entrada por producción a una bodega.
+ */
+function registrarEntradaProduccion(id_producto, id_lote, id_bodega, id_usuario, cantidad, observaciones = "") {
+    const session = db.getMongo().startSession();
+    session.startTransaction();
+    try {
+        const movimiento = {
+            id_producto,
+            id_lote,
+            id_usuario,
+            tipo_movimiento: "ENTRADA",
+            subtipo: "PRODUCCION",
+            cantidad,
+            observaciones,
+            ubicacion: { tipo: "BODEGA", id_ubicacion: id_bodega }
+        };
+        const movId = insertMovementAndUpdateStock(movimiento, session);
+        session.commitTransaction();
+        return movId;
+    } catch (e) {
+        session.abortTransaction();
+        throw e;
+    } finally {
+        session.endSession();
+    }
+}
+
+/**
+ * RQF041 – Ajuste por bultos extra (entrada).
+ */
+function registrarAjusteExtra(id_producto, id_lote, id_ubicacion, tipo_ubicacion, id_usuario, cantidad, motivo) {
+    const session = db.getMongo().startSession();
+    session.startTransaction();
+    try {
+        const movimiento = {
+            id_producto,
+            id_lote,
+            id_usuario,
+            tipo_movimiento: "ENTRADA",
+            subtipo: "AJUSTE_EXTRA",
+            cantidad,
+            observaciones: motivo || "Ajuste por bultos extra",
+            ubicacion: { tipo: tipo_ubicacion, id_ubicacion }
+        };
+        const movId = insertMovementAndUpdateStock(movimiento, session);
+        session.commitTransaction();
+        return movId;
+    } catch (e) {
+        session.abortTransaction();
+        throw e;
+    } finally {
+        session.endSession();
+    }
+}
+
+/**
+ * RQF042 – Ajuste por bultos faltantes (salida).
+ */
+function registrarFaltante(id_producto, id_lote, id_ubicacion, tipo_ubicacion, id_usuario, cantidad, motivo) {
+    const session = db.getMongo().startSession();
+    session.startTransaction();
+    try {
+        const movimiento = {
+            id_producto,
+            id_lote,
+            id_usuario,
+            tipo_movimiento: "SALIDA",
+            subtipo: "FALTANTE",
+            cantidad,
+            observaciones: motivo || "Bultos faltantes en conteo",
+            ubicacion: { tipo: tipo_ubicacion, id_ubicacion }
+        };
+        const movId = insertMovementAndUpdateStock(movimiento, session);
+        session.commitTransaction();
+        return movId;
+    } catch (e) {
+        session.abortTransaction();
+        throw e;
+    } finally {
+        session.endSession();
+    }
+}
+
+/**
+ * RQF043 – Registrar pérdida (salida).
+ */
+function registrarPerdida(id_producto, id_lote, id_ubicacion, tipo_ubicacion, id_usuario, cantidad, motivo) {
+    const session = db.getMongo().startSession();
+    session.startTransaction();
+    try {
+        const movimiento = {
+            id_producto,
+            id_lote,
+            id_usuario,
+            tipo_movimiento: "SALIDA",
+            subtipo: "PERDIDA",
+            cantidad,
+            observaciones: motivo || "Pérdida de mercancía",
+            ubicacion: { tipo: tipo_ubicacion, id_ubicacion }
+        };
+        const movId = insertMovementAndUpdateStock(movimiento, session);
+        session.commitTransaction();
+        return movId;
+    } catch (e) {
+        session.abortTransaction();
+        throw e;
+    } finally {
+        session.endSession();
+    }
+}
+
+/**
+ * RQF044 – Registrar daño (salida).
+ */
+function registrarDanio(id_producto, id_lote, id_ubicacion, tipo_ubicacion, id_usuario, cantidad, motivo) {
+    const session = db.getMongo().startSession();
+    session.startTransaction();
+    try {
+        const movimiento = {
+            id_producto,
+            id_lote,
+            id_usuario,
+            tipo_movimiento: "SALIDA",
+            subtipo: "DAÑO",
+            cantidad,
+            observaciones: motivo || "Producto dañado",
+            ubicacion: { tipo: tipo_ubicacion, id_ubicacion }
+        };
+        const movId = insertMovementAndUpdateStock(movimiento, session);
+        session.commitTransaction();
+        return movId;
+    } catch (e) {
+        session.abortTransaction();
+        throw e;
+    } finally {
+        session.endSession();
+    }
+}
+
+/**
+ * RQF045 – Traslado entre bodegas (salida de origen + entrada en destino).
+ *           Retorna { movimientoSalidaId, movimientoEntradaId }
+ */
+function registrarTraslado(id_producto, id_lote, id_bodega_origen, id_bodega_destino, id_usuario, cantidad) {
+    if (id_bodega_origen.toString() === id_bodega_destino.toString()) {
+        throw new Error("Origen y destino no pueden ser la misma bodega (RQF051)");
+    }
+    if (cantidad <= 0) {
+        throw new Error("La cantidad debe ser mayor a cero (RQF050)");
     }
 
-    // Insertar movimiento
-    let mov = db.movimiento_inventario.insertOne({
-        id_producto: idProducto,
-        id_usuario: idUsuario,
-        id_bodega: idBodega,
-        fecha_movimiento: new Date(),
-        tipo_movimiento: "ENTRADA",
-        cantidad_bultos: cantidad,
-        observaciones: observaciones
-    }, { session });
-    let idMovimiento = mov.insertedId;
+    const session = db.getMongo().startSession();
+    session.startTransaction();
+    try {
+        // Salida de origen
+        const salidaMov = {
+            id_producto,
+            id_lote,
+            id_usuario,
+            tipo_movimiento: "SALIDA",
+            subtipo: "TRANSFERENCIA",
+            cantidad,
+            observaciones: `Traslado a bodega destino`,
+            ubicacion: { tipo: "BODEGA", id_ubicacion: id_bodega_origen }
+        };
+        const idSalida = insertMovementAndUpdateStock(salidaMov, session);
 
-    // Insertar entrada
-    let entrada = db.entrada.insertOne({
-        id_stock: stock._id,
-        id_usuario: idUsuario,
-        id_bodega: idBodega,
-        id_movimiento: idMovimiento,
-        id_proveedor: idProveedor || null,
-        fecha_entrada: new Date(),
-        cantidad_ingresada: cantidad,
-        tipo_ingreso: tipoIngreso,
-        numero_lote: numeroLote || null,
-        observaciones: observaciones
-    }, { session });
+        // Entrada en destino
+        const entradaMov = {
+            id_producto,
+            id_lote,
+            id_usuario,
+            tipo_movimiento: "ENTRADA",
+            subtipo: "TRANSFERENCIA",
+            cantidad,
+            observaciones: `Traslado desde bodega origen`,
+            ubicacion: { tipo: "BODEGA", id_ubicacion: id_bodega_destino }
+        };
+        const idEntrada = insertMovementAndUpdateStock(entradaMov, session);
 
-    // Actualizar stock (sumar)
-    actualizarStock(idProducto, idBodega, cantidad, session);
-
-    return { idEntrada: entrada.insertedId, idMovimiento: idMovimiento };
-}
-
-// ------------------------------------------------------------
-// RQF041: Registrar bultos extra (ajuste positivo)
-// ------------------------------------------------------------
-function registrarAjusteExtra(idProducto, idBodega, cantidad, idUsuario, observaciones, session) {
-    return registrarEntrada(idProducto, idBodega, cantidad, idUsuario, "AJUSTE_EXTRA", null, null, observaciones, session);
-}
-
-// ------------------------------------------------------------
-// RQF042: Registrar bultos faltantes (ajuste negativo)
-// ------------------------------------------------------------
-function registrarAjusteFaltante(idProducto, idBodega, cantidad, idUsuario, observaciones, session) {
-    if (cantidad <= 0) throw new Error("RQF050: Cantidad > 0");
-
-    let stock = obtenerStock(idProducto, idBodega);
-    if (!stock) throw new Error("No existe stock para ese producto en la bodega.");
-    if (stock.cantidad_actual < cantidad) throw new Error("RQF046: Stock insuficiente.");
-
-    let mov = db.movimiento_inventario.insertOne({
-        id_producto: idProducto,
-        id_usuario: idUsuario,
-        id_bodega: idBodega,
-        fecha_movimiento: new Date(),
-        tipo_movimiento: "AJUSTE",
-        cantidad_bultos: cantidad,
-        observaciones: observaciones
-    }, { session });
-    let idMovimiento = mov.insertedId;
-
-    db.salida.insertOne({
-        id_usuario: idUsuario,
-        id_stock: stock._id,
-        id_movimiento: idMovimiento,
-        fecha_salida: new Date(),
-        cantidad_salida: cantidad,
-        tipo_mov_salida: "AJUSTE_FALTANTE",
-        lote: null,
-        observaciones: observaciones
-    }, { session });
-
-    actualizarStock(idProducto, idBodega, -cantidad, session);
-    return { idMovimiento: idMovimiento };
-}
-
-// ------------------------------------------------------------
-// RQF043: Registrar pérdida
-// ------------------------------------------------------------
-function registrarPerdida(idProducto, idBodega, cantidad, idUsuario, observaciones, session) {
-    if (cantidad <= 0) throw new Error("RQF050");
-    let stock = obtenerStock(idProducto, idBodega);
-    if (!stock) throw new Error("No existe stock.");
-    if (stock.cantidad_actual < cantidad) throw new Error("RQF046");
-
-    let mov = db.movimiento_inventario.insertOne({
-        id_producto: idProducto,
-        id_usuario: idUsuario,
-        id_bodega: idBodega,
-        fecha_movimiento: new Date(),
-        tipo_movimiento: "PERDIDA",
-        cantidad_bultos: cantidad,
-        observaciones: observaciones
-    }, { session });
-
-    db.salida.insertOne({
-        id_usuario: idUsuario,
-        id_stock: stock._id,
-        id_movimiento: mov.insertedId,
-        fecha_salida: new Date(),
-        cantidad_salida: cantidad,
-        tipo_mov_salida: "PERDIDA",
-        lote: null,
-        observaciones: observaciones
-    }, { session });
-
-    actualizarStock(idProducto, idBodega, -cantidad, session);
-    return { idMovimiento: mov.insertedId };
-}
-
-// ------------------------------------------------------------
-// RQF044: Registrar daño
-// ------------------------------------------------------------
-function registrarDano(idProducto, idBodega, cantidad, idUsuario, observaciones, session) {
-    if (cantidad <= 0) throw new Error("RQF050");
-    let stock = obtenerStock(idProducto, idBodega);
-    if (!stock) throw new Error("No existe stock.");
-    if (stock.cantidad_actual < cantidad) throw new Error("RQF046");
-
-    let mov = db.movimiento_inventario.insertOne({
-        id_producto: idProducto,
-        id_usuario: idUsuario,
-        id_bodega: idBodega,
-        fecha_movimiento: new Date(),
-        tipo_movimiento: "DAÑO",
-        cantidad_bultos: cantidad,
-        observaciones: observaciones
-    }, { session });
-
-    db.salida.insertOne({
-        id_usuario: idUsuario,
-        id_stock: stock._id,
-        id_movimiento: mov.insertedId,
-        fecha_salida: new Date(),
-        cantidad_salida: cantidad,
-        tipo_mov_salida: "DAÑO",
-        lote: null,
-        observaciones: observaciones
-    }, { session });
-
-    actualizarStock(idProducto, idBodega, -cantidad, session);
-    return { idMovimiento: mov.insertedId };
-}
-
-// ------------------------------------------------------------
-// RQF045: Registrar traslado
-// ------------------------------------------------------------
-function registrarTraslado(idProducto, idBodegaOrigen, idBodegaDestino, cantidad, idUsuario, observaciones, session) {
-    if (cantidad <= 0) throw new Error("RQF050");
-    if (idBodegaOrigen === idBodegaDestino) throw new Error("RQF051: Misma bodega.");
-
-    let stockOrigen = obtenerStock(idProducto, idBodegaOrigen);
-    if (!stockOrigen) throw new Error("No hay stock en origen.");
-    if (stockOrigen.cantidad_actual < cantidad) throw new Error("RQF046: Insuficiente en origen.");
-
-    let stockDestino = obtenerStock(idProducto, idBodegaDestino);
-    if (!stockDestino) {
-        db.stock.insertOne({
-            id_producto: idProducto,
-            id_bodega: idBodegaDestino,
-            cantidad_actual: 0,
-            stock_minimo_seguridad: 0,
-            fecha_ultima_auditoria: new Date()
-        }, { session });
-        stockDestino = obtenerStock(idProducto, idBodegaDestino);
+        session.commitTransaction();
+        return { movimientoSalidaId: idSalida, movimientoEntradaId: idEntrada };
+    } catch (e) {
+        session.abortTransaction();
+        throw e;
+    } finally {
+        session.endSession();
     }
-
-    // Movimiento de salida en origen
-    let movSalida = db.movimiento_inventario.insertOne({
-        id_producto: idProducto,
-        id_usuario: idUsuario,
-        id_bodega: idBodegaOrigen,
-        fecha_movimiento: new Date(),
-        tipo_movimiento: "SALIDA",
-        cantidad_bultos: cantidad,
-        observaciones: observaciones
-    }, { session });
-
-    db.salida.insertOne({
-        id_usuario: idUsuario,
-        id_stock: stockOrigen._id,
-        id_movimiento: movSalida.insertedId,
-        fecha_salida: new Date(),
-        cantidad_salida: cantidad,
-        tipo_mov_salida: "TRASLADO_SALIDA",
-        lote: null,
-        observaciones: observaciones
-    }, { session });
-
-    actualizarStock(idProducto, idBodegaOrigen, -cantidad, session);
-
-    // Movimiento de entrada en destino
-    let movEntrada = db.movimiento_inventario.insertOne({
-        id_producto: idProducto,
-        id_usuario: idUsuario,
-        id_bodega: idBodegaDestino,
-        fecha_movimiento: new Date(),
-        tipo_movimiento: "ENTRADA",
-        cantidad_bultos: cantidad,
-        observaciones: observaciones
-    }, { session });
-
-    db.entrada.insertOne({
-        id_stock: stockDestino._id,
-        id_usuario: idUsuario,
-        id_bodega: idBodegaDestino,
-        id_movimiento: movEntrada.insertedId,
-        id_proveedor: null,
-        fecha_entrada: new Date(),
-        cantidad_ingresada: cantidad,
-        tipo_ingreso: "TRASLADO_ENTRADA",
-        numero_lote: null,
-        observaciones: observaciones
-    }, { session });
-
-    actualizarStock(idProducto, idBodegaDestino, cantidad, session);
-    return { idMovSalida: movSalida.insertedId, idMovEntrada: movEntrada.insertedId };
 }
 
-// ------------------------------------------------------------
-// RQF052, RQF053, RQF054, RQF055, RQF056: Registrar venta
-// ------------------------------------------------------------
-function registrarVenta(idCliente, idProducto, idBodega, lote, cantidad, idUsuario, observaciones, session) {
-    if (cantidad <= 0) throw new Error("RQF050");
-
-    let stock = obtenerStock(idProducto, idBodega);
-    if (!stock) throw new Error("No hay stock del producto en esa bodega.");
-    if (stock.cantidad_actual < cantidad) throw new Error("RQF046/RQF055: Stock insuficiente.");
-
-    let mov = db.movimiento_inventario.insertOne({
-        id_producto: idProducto,
-        id_usuario: idUsuario,
-        id_bodega: idBodega,
-        fecha_movimiento: new Date(),
-        tipo_movimiento: "VENTA",
-        cantidad_bultos: cantidad,
-        observaciones: observaciones
-    }, { session });
-
-    let salida = db.salida.insertOne({
-        id_usuario: idUsuario,
-        id_stock: stock._id,
-        id_movimiento: mov.insertedId,
-        fecha_salida: new Date(),
-        cantidad_salida: cantidad,
-        tipo_mov_salida: "VENTA",
-        lote: lote,
-        observaciones: observaciones
-    }, { session });
-
-    let venta = db.venta.insertOne({
-        id_cliente: idCliente,
-        id_usuario: idUsuario,
-        id_salida: salida.insertedId,
-        fecha_venta: new Date(),
-        observaciones: observaciones,
-        estado: "ACTIVA"
-    }, { session });
-
-    actualizarStock(idProducto, idBodega, -cantidad, session);
-    return { idVenta: venta.insertedId, idSalida: salida.insertedId, idMovimiento: mov.insertedId };
+/**
+ * RQF046 – Valida si hay stock suficiente (función de consulta, no modifica datos).
+ *          Devuelve true/false.
+ */
+function validarStockSuficiente(id_producto, id_lote, tipo_ubicacion, id_ubicacion, cantidad) {
+    const stockDoc = getStock(tipo_ubicacion, id_ubicacion, id_producto, id_lote);
+    if (!stockDoc || stockDoc.cantidad_actual < cantidad) {
+        return false;
+    }
+    return true;
 }
 
+// RQF047 – Atomicidad: todas las funciones que modifican stock usan transacciones.
+// RQF048 – Usuario: siempre se recibe id_usuario.
+// RQF049 – Fecha automática: se asigna en insertMovementAndUpdateStock.
+// RQF050 – Cantidad positiva: validado en las funciones que lo requieren (traslados, ventas, etc.)
+// RQF051 – Misma bodega en traslado: validado en registrarTraslado().
+
 // ------------------------------------------------------------
-// RQF058: Anular venta
+// 3. MÓDULO 7 – Ventas (operaciones transaccionales)
 // ------------------------------------------------------------
-function anularVenta(idVenta, idUsuario, motivo, session) {
-    let venta = db.venta.findOne({ _id: idVenta, estado: "ACTIVA" });
-    if (!venta) throw new Error("Venta no encontrada o ya anulada.");
 
-    let salida = db.salida.findOne({ _id: venta.id_salida });
-    let movimiento = db.movimiento_inventario.findOne({ _id: salida.id_movimiento });
+/**
+ * RQF052-056 – Registrar una venta en una tienda.
+ *              Crea los movimientos de tipo VENTA y descuenta stock.
+ *
+ * @param {string|ObjectId} id_cliente
+ * @param {string|ObjectId} id_tienda
+ * @param {string|ObjectId} id_usuario  – vendedor
+ * @param {Array} lineasVenta – [{ id_producto, id_lote, cantidad }]
+ * @returns {ObjectId} id de la venta creada
+ */
+function registrarVenta(id_cliente, id_tienda, id_usuario, lineasVenta) {
+    const session = db.getMongo().startSession();
+    session.startTransaction();
+    try {
+        const venta = {
+            _id: new ObjectId(),
+            id_cliente: ObjectId(id_cliente),
+            id_usuario: ObjectId(id_usuario),
+            id_tienda: ObjectId(id_tienda),
+            fecha_venta: new Date(),
+            estado: "ACTIVA",
+            items: []
+        };
 
-    // Marcar venta como anulada
-    db.venta.updateOne({ _id: idVenta }, { $set: { estado: "ANULADA" } }, { session });
+        for (const linea of lineasVenta) {
+            // Validar stock en tienda
+            const stockDoc = getStock(
+                "TIENDA",
+                id_tienda,
+                linea.id_producto,
+                linea.id_lote,
+                session
+            );
+            if (!stockDoc || stockDoc.cantidad_actual < linea.cantidad) {
+                throw new Error(
+                    `Stock insuficiente para producto ${linea.id_producto}, ` +
+                    `lote ${linea.id_lote}. Disponible: ${stockDoc?.cantidad_actual || 0}`
+                );
+            }
 
-    // Crear movimiento de devolución
-    let movDev = db.movimiento_inventario.insertOne({
-        id_producto: movimiento.id_producto,
-        id_usuario: idUsuario,
-        id_bodega: movimiento.id_bodega,
-        fecha_movimiento: new Date(),
-        tipo_movimiento: "DEVOLUCION",
-        cantidad_bultos: salida.cantidad_salida,
-        observaciones: `Anulación venta ${idVenta}. Motivo: ${motivo}`
-    }, { session });
+            // Crear movimiento de venta y descontar stock (usando la función core)
+            const movId = insertMovementAndUpdateStock({
+                id_producto: linea.id_producto,
+                id_lote: linea.id_lote,
+                id_usuario,
+                tipo_movimiento: "VENTA",
+                subtipo: null,
+                cantidad: linea.cantidad,
+                observaciones: null,
+                ubicacion: { tipo: "TIENDA", id_ubicacion: id_tienda }
+            }, session);
 
-    db.devolucion.insertOne({
-        id_stock: salida.id_stock,
-        id_movimiento_relacionado: movimiento._id,
-        id_bodega: movimiento.id_bodega,
-        id_cliente: venta.id_cliente,
-        id_usuario: idUsuario,
-        fecha_devolucion: new Date(),
-        cantidad_devuelta: salida.cantidad_salida,
-        motivo_devolucion: motivo,
-        estado_producto: "BUENO",
-        genera_entrada: true,
-        observaciones: `Anulación venta ${idVenta}`
-    }, { session });
+            // Agregar al detalle de la venta
+            venta.items.push({
+                id_producto: ObjectId(linea.id_producto),
+                id_lote: ObjectId(linea.id_lote),
+                cantidad: linea.cantidad,
+                id_movimiento: movId
+            });
+        }
 
-    // Devolver stock
-    actualizarStock(movimiento.id_producto, movimiento.id_bodega, salida.cantidad_salida, session);
+        db.ventas.insertOne(venta, { session });
+        session.commitTransaction();
+        return venta._id;
+    } catch (e) {
+        session.abortTransaction();
+        throw e;
+    } finally {
+        session.endSession();
+    }
 }
 
-// ============================================================
-// FUNCIONES DE CONSULTA (RQF032, RQF036, RQF037, RQF057)
-// ============================================================
-
-// RQF032: Ver stock por producto y bodega
-function verStockDetallado() {
-    return db.stock.aggregate([
-        { $lookup: { from: "producto", localField: "id_producto", foreignField: "id_producto", as: "prod" } },
-        { $lookup: { from: "bodega", localField: "id_bodega", foreignField: "id_bodega", as: "bod" } },
-        { $unwind: "$prod" },
-        { $unwind: "$bod" },
-        { $project: {
-            id_producto: 1, nombre_sal: "$prod.nombre_sal_mineralizada",
-            id_bodega: 1, nombre_bodega: "$bod.nombre_bodega",
-            cantidad_actual: 1, stock_minimo_seguridad: 1,
-            alerta: { $cond: [{ $lte: ["$cantidad_actual", "$stock_minimo_seguridad"] }, "BAJO", "OK"] }
-        }}
+/**
+ * RQF057 – Listar todas las ventas con cliente y vendedor.
+ */
+function listarVentas() {
+    return db.ventas.aggregate([
+        {
+            $lookup: {
+                from: "clientes",
+                localField: "id_cliente",
+                foreignField: "_id",
+                as: "cliente"
+            }
+        },
+        { $unwind: "$cliente" },
+        {
+            $lookup: {
+                from: "usuarios",
+                localField: "id_usuario",
+                foreignField: "_id",
+                as: "vendedor"
+            }
+        },
+        { $unwind: "$vendedor" },
+        {
+            $project: {
+                _id: 1,
+                fecha_venta: 1,
+                estado: 1,
+                cliente: "$cliente.nombre_cliente",
+                vendedor: "$vendedor.nombre_completo",
+                items: 1
+            }
+        }
     ]).toArray();
 }
 
-// RQF036: Total por tipo de producto
-function totalPorProducto() {
-    return db.stock.aggregate([
-        { $group: { _id: "$id_producto", total: { $sum: "$cantidad_actual" } } },
-        { $lookup: { from: "producto", localField: "_id", foreignField: "id_producto", as: "prod" } },
-        { $unwind: "$prod" },
-        { $project: { id_producto: "$_id", nombre: "$prod.nombre_sal_mineralizada", total_bultos: "$total" } }
-    ]).toArray();
+/**
+ * RQF058-059 – Anular una venta activa.
+ *              Genera movimientos de DEVOLUCION, repone stock y cambia estado a ANULADA.
+ *
+ * @param {string|ObjectId} id_venta
+ * @param {string|ObjectId} id_usuario_anula – administrador
+ * @param {string} motivo
+ * @returns {ObjectId} id de la venta (confirmación)
+ */
+function anularVenta(id_venta, id_usuario_anula, motivo) {
+    const session = db.getMongo().startSession();
+    session.startTransaction();
+    try {
+        const venta = db.ventas.findOne(
+            { _id: ObjectId(id_venta), estado: "ACTIVA" },
+            { session }
+        );
+        if (!venta) {
+            throw new Error("Venta no encontrada o ya anulada");
+        }
+
+        const devoluciones = [];
+        for (const item of venta.items) {
+            // Crear movimiento de devolución (aumenta stock)
+            const movId = insertMovementAndUpdateStock({
+                id_producto: item.id_producto,
+                id_lote: item.id_lote,
+                id_usuario: id_usuario_anula,
+                tipo_movimiento: "DEVOLUCION",
+                subtipo: null,
+                cantidad: item.cantidad,
+                observaciones: `Anulación de venta ${venta._id}`,
+                ubicacion: { tipo: "TIENDA", id_ubicacion: venta.id_tienda }
+            }, session);
+
+            devoluciones.push({
+                id_producto: item.id_producto,
+                id_lote: item.id_lote,
+                cantidad_devuelta: item.cantidad,
+                id_movimiento: movId
+            });
+        }
+
+        // Marcar venta como anulada
+        db.ventas.updateOne(
+            { _id: venta._id },
+            {
+                $set: {
+                    estado: "ANULADA",
+                    anulacion: {
+                        id_usuario_anulo: ObjectId(id_usuario_anula),
+                        motivo,
+                        fecha_anulacion: new Date(),
+                        movimientos_devolucion: devoluciones
+                    }
+                }
+            },
+            { session }
+        );
+
+        session.commitTransaction();
+        return venta._id;
+    } catch (e) {
+        session.abortTransaction();
+        throw e;
+    } finally {
+        session.endSession();
+    }
 }
 
-// RQF037: Total por bodega
-function totalPorBodega() {
-    return db.stock.aggregate([
-        { $group: { _id: "$id_bodega", total: { $sum: "$cantidad_actual" } } },
-        { $lookup: { from: "bodega", localField: "_id", foreignField: "id_bodega", as: "bod" } },
-        { $unwind: "$bod" },
-        { $project: { id_bodega: "$_id", nombre: "$bod.nombre_bodega", total_bultos: "$total" } }
-    ]).toArray();
-}
-
-// RQF057: Lista de ventas
-function listaVentas() {
-    return db.venta.aggregate([
-        { $lookup: { from: "cliente", localField: "id_cliente", foreignField: "id_cliente", as: "cli" } },
-        { $lookup: { from: "salida", localField: "id_salida", foreignField: "id_salida", as: "sal" } },
-        { $lookup: { from: "usuario", localField: "id_usuario", foreignField: "id_usuario", as: "usr" } },
-        { $unwind: "$cli" }, { $unwind: "$sal" }, { $unwind: "$usr" },
-        { $lookup: { from: "stock", localField: "sal.id_stock", foreignField: "id_stock", as: "stk" } },
-        { $unwind: "$stk" },
-        { $lookup: { from: "producto", localField: "stk.id_producto", foreignField: "id_producto", as: "prod" } },
-        { $lookup: { from: "bodega", localField: "stk.id_bodega", foreignField: "id_bodega", as: "bod" } },
-        { $unwind: "$prod" }, { $unwind: "$bod" },
-        { $project: {
-            id_venta: "$_id", fecha: "$fecha_venta",
-            cliente: "$cli.nombre_cliente", producto: "$prod.nombre_sal_mineralizada",
-            bodega: "$bod.nombre_bodega", lote: "$sal.lote",
-            cantidad: "$sal.cantidad_salida", estado: "$estado",
-            vendedor: "$usr.nombre_completo"
-        }}
-    ]).toArray();
-}
