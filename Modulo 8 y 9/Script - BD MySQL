@@ -1,12 +1,12 @@
 -- ============================================================
 -- 1. CREACIÓN DE LA BASE DE DATOS
 -- ============================================================
-DROP DATABASE IF EXISTS salinas_del_cravo_v2;
-CREATE DATABASE salinas_del_cravo_v2
+DROP DATABASE IF EXISTS salinas_del_cravo;
+CREATE DATABASE salinas_del_cravo
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
 
-USE salinas_del_cravo_v2;
+USE salinas_del_cravo;
 
 
 -- ============================================================
@@ -302,7 +302,7 @@ CREATE TABLE devolucion (
 );
 
 -- ============================================================
--- DML COMPLETO — salinas_del_cravo_v2
+-- DML COMPLETO — salinas_del_cravo
 -- Generado automáticamente
 -- ============================================================
 
