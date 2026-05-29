@@ -1,0 +1,198 @@
+use("salinas_del_cravo");
+
+print("=========================================================================");
+print("  INICIANDO EJECUCIÓN COMPLETA DE REQUERIMIENTOS DE LA TERCERA ENTREGA   ");
+print("=========================================================================");
+
+// =============================================================================
+// 1. REQUERIMIENTO: CONSULTAS BÁSICAS (LISTAR TODO)
+// =============================================================================
+print("\n>>> [1/4] EJECUTANDO CONSULTAS BÁSICAS (LISTAR CONTENIDO GENERAL) <<<");
+
+print("\n--- Estado de Infraestructura de Bodegas (Módulo 4) ---");
+db.bodegas.find().pretty();
+
+print("\n--- Estado de Inventarios de Lotes de Sal (Módulo 3) ---");
+db.lotes.find().pretty();
+
+print("\n--- Historial General de Movimientos y Entradas (Módulo 3) ---");
+db.movimientos.find().pretty();
+
+
+// =============================================================================
+// 2. REQUERIMIENTO: SET DE CONSULTAS ESPECÍFICAS (7 POR COLECCIÓN / MÓDULO)
+// =============================================================================
+print("\n>>> [2/4] EJECUTANDO SET DE 14 CONSULTAS ESPECÍFICAS AVANZADAS <<<");
+
+print("\n--- 2.1) CONSULTAS ESPECÍFICAS PARA LA INFRAESTRUCTURA DE BODEGAS (MÓDULO 4) ---");
+
+// Consulta 1: Filtrar bodegas que se encuentren operativas y disponibles en el sistema
+print("C1: Bodegas en estado ACTIVA:");
+db.bodegas.find({ "estado": "ACTIVA" });
+
+// Consulta 2: Buscar centros de acopio de gran envergadura (Capacidad mayor o igual a 2000 bultos)
+print("C2: Bodegas con capacidad logística >= 2000 bultos:");
+db.bodegas.find({ "capacidad_bultos": { $gte: 2000 } });
+
+// Consulta 3: Filtrar infraestructuras cuya dirección física contenga textualmente el término 'Industrial'
+print("C3: Bodegas ubicadas en sectores industriales (Regex):");
+db.bodegas.find({ "direccion": /Industrial/i });
+
+// Consulta 4: Localizar una bodega exacta a través de su identificador inmutable (Bodega 1 del Seed)
+print("C4: Recuperar Bodega Principal por su ObjectId:");
+db.bodegas.find({ "_id": new ObjectId("bbbbbb000000000000000001") });
+
+// Consulta 5: Identificar nodos de distribución satélites o de baja capacidad (< 1000 bultos)
+print("C5: Bodegas críticas o de almacenamiento menor a 1000 bultos:");
+db.bodegas.find({ "capacidad_bultos": { $lt: 1000 } });
+
+// Consulta 6: Listar bodegas temporalmente fuera de servicio o suspendidas por auditoría
+print("C6: Bodegas en estado INACTIVA:");
+db.bodegas.find({ "estado": "INACTIVA" });
+
+// Consulta 7: Consultar bodegas con un rango de almacenamiento intermedio (Entre 1000 y 2500 bultos inclusive)
+print("C7: Bodegas con capacidad intermedia (Entre 1000 y 2500 bultos):");
+db.bodegas.find({ "capacidad_bultos": { $gte: 1000, $lte: 2500 } });
+
+
+print("\n--- 2.2) CONSULTAS ESPECÍFICAS PARA LOTES Y ENTRADAS LOGÍSTICAS (MÓDULO 3) ---");
+
+// Consulta 1: Filtrar lotes de sal mineralizada que dispongan de existencias reales en inventario
+print("C1: Lotes de producción con existencias físicas disponibles (> 0 bultos):");
+db.lotes.find({ "cantidad": { $gt: 0 } });
+
+// Consulta 2: Rastrear un lote de producción mediante su nomenclatura única de trazabilidad en planta
+print("C2: Localizar el historial del lote específico LOT-001:");
+db.lotes.find({ "codigo_lote": "LOT-001" });
+
+// Consulta 3: Filtrar el registro histórico buscando únicamente operaciones de ingreso fabril
+print("C3: Movimientos de tipo ENTRADA_PRODUCCION:");
+db.movimientos.find({ "tipo_movimiento": "ENTRADA_PRODUCCION" });
+
+// Consulta 4: Capturar movimientos masivos donde el volumen ingresado supere el umbral de los 200 bultos
+print("C4: Ingresos de sal a gran escala que superen los 200 bultos:");
+db.movimientos.find({ "cantidad": { $gt: 200 } });
+
+// Consulta 5: Identificar todos los lotes fabricados y asociados a la referencia de 'Sal Premium 12%' (id_producto fijo)
+print("C5: Lotes vinculados al ID del producto Premium 12%:");
+db.lotes.find({ "id_producto": new ObjectId("cccccc000000000000000001") });
+
+// Consulta 6: Auditar movimientos de almacén operados exclusivamente por un usuario específico (Ej: Administrador 1)
+print("C6: Trazabilidad de movimientos ejecutados por el Administrador 1:");
+db.movimientos.find({ "id_usuario": new ObjectId("aaaaaa000000000000000001") });
+
+// Consulta 7: Filtrar ingresos de producción efectuados a partir de una fecha contable determinada (Ej: 1 de Abril de 2026)
+print("C7: Movimientos registrados a partir de la fecha contable (2026-04-01):");
+db.movimientos.find({ 
+  "tipo_movimiento": "ENTRADA_PRODUCCION", 
+  "fecha": { $gte: ISODate("2026-04-01T00:00:00Z") } 
+});
+
+
+// =============================================================================
+// 3. REQUERIMIENTO: OPERACIONES DE MODIFICACIÓN Y ELIMINACIÓN (5 UPDATES / 1 DELETE)
+// =============================================================================
+print("\n>>> [3/4] EJECUTANDO OPERACIONES DE MUTACIÓN DE DATOS (DML) <<<");
+
+// Modificación 1: Actualizar la ubicación y expandir la capacidad física de la Bodega Principal por reformas
+print("M1: Ampliación de infraestructura física para Bodega 1...");
+db.bodegas.updateOne(
+  { "_id": new ObjectId("bbbbbb000000000000000001") },
+  { $set: { "direccion": "Zona Industrial Lote 14 Km 2 - Sogamoso Ampliada", "capacidad_bultos": 3500 } }
+);
+
+// Modificación 2: Desactivar masivamente de forma preventiva bodegas críticas con capacidad inferior a 600 bultos
+print("M2: Clausura preventiva masiva de bodegas pequeñas (< 600 bultos)...");
+db.bodegas.updateMany(
+  { "capacidad_bultos": { $lt: 600 } },
+  { $set: { "estado": "INACTIVA" } }
+);
+
+// Modificación 3: Recalibrar el saldo real de bultos del lote LOT-001 tras un proceso de auditoría y conteo físico en planta
+print("M3: Ajuste de inventario atómico para el lote LOT-001...");
+db.lotes.updateOne(
+  { "codigo_lote": "LOT-001" },
+  { $set: { "cantidad": 520 } }
+);
+
+// Modificación 4: Enmendar y complementar la descripción aclaratoria de un movimiento de entrada específico (Movimiento 1)
+print("M4: Actualización de glosa de auditoría en el movimiento 1...");
+db.movimientos.updateOne(
+  { "_id": new ObjectId("mmmmmm000000000000000001") },
+  { $set: { "observaciones": "Entrada de lote aprobada plenamente por control de calidad y el jefe de planta." } }
+);
+
+// Modificación 5: Incorporar masivamente una bandera lógica para control de mantenimiento en movimientos de producción
+print("M5: Inserción de campo dinámico de control en movimientos de entrada...");
+db.movimientos.updateMany(
+  { "tipo_movimiento": "ENTRADA_PRODUCCION" },
+  { $set: { "requiere_auditoria_fiscal": false } }
+);
+
+// Eliminación: Remover del archivo histórico un registro de movimiento duplicado o cargado por error (Movimiento 3 del Seed)
+print("D1: Eliminando registro erróneo del historial (Movimiento 3)...");
+db.movimientos.deleteOne({ "_id": new ObjectId("mmmmmm000000000000000003") });
+
+
+// =============================================================================
+// 4. REQUERIMIENTO: CONSULTAS CRUZADAS (PIPELINES DE AGREGACIÓN MULTI-COLECCIÓN)
+// =============================================================================
+print("\n>>> [4/4] EJECUTANDO PIPELINES ANALÍTICOS DE CONSULTAS CRUZADAS ($LOOKUP) <<<");
+
+print("\n--- Agregación Avanzada 1: Reporte Integrado de Trazabilidad de Lotes y Productos ---");
+// Objetivo: Cruza la colección intermedia de lotes con el maestro de productos para romper el aislamiento NoSQL.
+db.lotes.aggregate([
+  {
+    $lookup: {
+      from: "productos",
+      localField: "id_producto",
+      foreignField: "_id",
+      as: "informacion_producto"
+    }
+  },
+  {
+    $unwind: "$informacion_producto"
+  },
+  {
+    $project: {
+      "_id": 0,
+      "Codigo_Lote": "$codigo_lote",
+      "Saldo_Bultos_Disponibles": "$cantidad",
+      "Fecha_Vencimiento_Lote": "$fecha_vencimiento",
+      "Nombre_Comercial_Sal": "$informacion_producto.nombre",
+      "Concentracion_Fosforo": "$informacion_producto.porcentaje_fosforo",
+      "Valor_Base_Mercado": "$informacion_producto.precio_base"
+    }
+  }
+]).pretty();
+
+
+print("\n--- Agregación Avanzada 2: Historial Consolidador de Entradas con Ubicación de Bodega Custodia ---");
+// Objetivo: Filtra los movimientos de entrada a almacén y les asocia la información geográfica e infraestructura de la bodega de destino.
+db.movimientos.aggregate([
+  {
+    $match: { "tipo_movimiento": "ENTRADA_PRODUCCION" }
+  },
+  {
+    $lookup: {
+      from: "bodegas",
+      localField: "id_ubicacion",
+      foreignField: "_id",
+      as: "bodega_destino"
+    }
+  },
+  {
+    $unwind: "$bodega_destino"
+  },
+  {
+    $project: {
+      "_id": 0,
+      "Fecha_Operacion": "$fecha",
+      "Bultos_Ingresados": "$cantidad",
+      "Nombre_Bodega_Custodia": "$bodega_destino.nombre_bodega",
+      "Ubicacion_Sede": "$bodega_destino.direccion",
+      "Estado_Operativo_Bodega": "$bodega_destino.estado",
+      "Anotacion_Logistica": "$observaciones"
+    }
+  }
+]).pretty();
