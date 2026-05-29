@@ -1978,5 +1978,3 @@ function rqf070_trazabilidadLote(numeroLote) {
 // PRUEBA RQF070
 rqf070_trazabilidadLote("LOTE-001");
 rqf070_trazabilidadLote("LOTE-003");
-
-print("══════════════════════════════════════════\n");
