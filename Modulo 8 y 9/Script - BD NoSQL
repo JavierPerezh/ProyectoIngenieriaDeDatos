@@ -1064,6 +1064,394 @@ print("  movimientos : " + db.movimientos.countDocuments());
 print("  ventas      : " + db.ventas.countDocuments());
 print("══════════════════════════════════════════\n");
 
+// ============================================================
+// SEED — colección stock
+// salinas_del_cravo
+// Pobla stock con datos para probar RQF060 (stock bajo) y
+// RQF061 (bodega llena). Ejecutar DESPUÉS del seed principal.
+// ============================================================
+use("salinas_del_cravo");
+
+// ─────────────────────────────────────────────────────────────
+// Re-declarar los ObjectIds del seed principal para mantener
+// consistencia de referencias
+// ─────────────────────────────────────────────────────────────
+const pId = {
+  1:  new ObjectId("cccccc000000000000000001"),
+  2:  new ObjectId("cccccc000000000000000002"),
+  3:  new ObjectId("cccccc000000000000000003"),
+  4:  new ObjectId("cccccc000000000000000004"),
+  5:  new ObjectId("cccccc000000000000000005"),
+  6:  new ObjectId("cccccc000000000000000006"),
+  7:  new ObjectId("cccccc000000000000000007"),
+  8:  new ObjectId("cccccc000000000000000008"),
+  9:  new ObjectId("cccccc000000000000000009"),
+  10: new ObjectId("cccccc000000000000000010"),
+};
+
+const bodId = {
+  1: new ObjectId("dddddd000000000000000001"), // Bodega Central  cap: 5000
+  2: new ObjectId("dddddd000000000000000002"), // Bodega Norte    cap: 3000
+  3: new ObjectId("dddddd000000000000000003"), // Bodega Sur      cap: 2000
+};
+
+const tId = {
+  1: new ObjectId("eeeeee000000000000000001"),
+  2: new ObjectId("eeeeee000000000000000002"),
+  3: new ObjectId("eeeeee000000000000000003"),
+  4: new ObjectId("eeeeee000000000000000004"),
+  5: new ObjectId("eeeeee000000000000000005"),
+};
+
+const lotId = {
+  1:  new ObjectId("101010000000000000000001"),
+  2:  new ObjectId("101010000000000000000002"),
+  3:  new ObjectId("101010000000000000000003"),
+  4:  new ObjectId("101010000000000000000004"),
+  5:  new ObjectId("101010000000000000000005"),
+  6:  new ObjectId("101010000000000000000006"),
+  7:  new ObjectId("101010000000000000000007"),
+  8:  new ObjectId("101010000000000000000008"),
+  9:  new ObjectId("101010000000000000000009"),
+  10: new ObjectId("101010000000000000000010"),
+  11: new ObjectId("101010000000000000000011"),
+  12: new ObjectId("101010000000000000000012"),
+  13: new ObjectId("101010000000000000000013"),
+  14: new ObjectId("101010000000000000000014"),
+  15: new ObjectId("101010000000000000000015"),
+  16: new ObjectId("101010000000000000000016"),
+  17: new ObjectId("101010000000000000000017"),
+  18: new ObjectId("101010000000000000000018"),
+  19: new ObjectId("101010000000000000000019"),
+  20: new ObjectId("101010000000000000000020"),
+};
+
+// ─────────────────────────────────────────────────────────────
+// Limpiar stock previo
+// ─────────────────────────────────────────────────────────────
+db.stock.deleteMany({});
+print("Stock previo eliminado.");
+
+// ─────────────────────────────────────────────────────────────
+// STOCK EN BODEGAS
+//
+// Lógica de cantidades para cubrir ambas pruebas:
+//
+//  RQF060 — Stock bajo:
+//    Necesitamos registros donde cantidad_actual < stock_minimo_seguridad.
+//    Marcados con comentario [BAJO].
+//
+//  RQF061 — Bodega llena:
+//    Necesitamos que la SUMA de cantidad_actual en una bodega
+//    >= capacidad_maxima_bultos de esa bodega.
+//    Bodega Sur (cap: 2000) la llenaremos intencionalmente.
+//    Marcados con comentario [LLENA].
+//
+// Distribución:
+//   Bodega Central (cap 5000): stock normal ~1800 bultos totales → no llena
+//   Bodega Norte   (cap 3000): stock normal ~900  bultos totales → no llena
+//   Bodega Sur     (cap 2000): stock forzado a 2000 bultos       → LLENA [RQF061]
+// ─────────────────────────────────────────────────────────────
+db.stock.insertMany([
+
+  // ══════════════════════════════════════════
+  // BODEGA CENTRAL (capacidad: 5000 bultos)
+  // Total aprox: 1820 → NO llena
+  // ══════════════════════════════════════════
+
+  // Lote 1 — pId[1] SAL12-B50 — stock normal
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[1],
+    id_producto:            pId[1],
+    id_lote:                lotId[1],
+    cantidad_actual:        NumberInt(500),
+    stock_minimo_seguridad: NumberInt(100),
+    fecha_ultima_auditoria: new Date("2026-05-01")
+  },
+
+  // Lote 4 — pId[4] SAL10-B40 — [BAJO] cantidad < mínimo
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[1],
+    id_producto:            pId[4],
+    id_lote:                lotId[4],
+    cantidad_actual:        NumberInt(30),   // ← BAJO del mínimo
+    stock_minimo_seguridad: NumberInt(150),
+    fecha_ultima_auditoria: new Date("2026-05-10")
+  },
+
+  // Lote 7 — pId[7] SAL06-B50 — stock normal
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[1],
+    id_producto:            pId[7],
+    id_lote:                lotId[7],
+    cantidad_actual:        NumberInt(400),
+    stock_minimo_seguridad: NumberInt(80),
+    fecha_ultima_auditoria: new Date("2026-05-15")
+  },
+
+  // Lote 10 — pId[10] SAL04-B40 — [BAJO] cantidad < mínimo
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[1],
+    id_producto:            pId[10],
+    id_lote:                lotId[10],
+    cantidad_actual:        NumberInt(5),    // ← BAJO del mínimo
+    stock_minimo_seguridad: NumberInt(200),
+    fecha_ultima_auditoria: new Date("2026-05-20")
+  },
+
+  // Lote 13 — pId[3] SAL10-B50 — stock normal
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[1],
+    id_producto:            pId[3],
+    id_lote:                lotId[13],
+    cantidad_actual:        NumberInt(380),
+    stock_minimo_seguridad: NumberInt(50),
+    fecha_ultima_auditoria: new Date("2026-05-22")
+  },
+
+  // Lote 16 — pId[6] SAL08-B40 — stock normal
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[1],
+    id_producto:            pId[6],
+    id_lote:                lotId[16],
+    cantidad_actual:        NumberInt(505),
+    stock_minimo_seguridad: NumberInt(100),
+    fecha_ultima_auditoria: new Date("2026-05-23")
+  },
+
+  // Lote 19 — pId[9] SAL04-B50 — stock normal
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[1],
+    id_producto:            pId[9],
+    id_lote:                lotId[19],
+    cantidad_actual:        NumberInt(0),    // ← BAJO (en 0, mínimo 120)
+    stock_minimo_seguridad: NumberInt(120),
+    fecha_ultima_auditoria: new Date("2026-05-25")
+  },
+
+
+  // ══════════════════════════════════════════
+  // BODEGA NORTE (capacidad: 3000 bultos)
+  // Total aprox: 910 → NO llena
+  // ══════════════════════════════════════════
+
+  // Lote 2 — pId[2] SAL12-B40 — stock normal
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[2],
+    id_producto:            pId[2],
+    id_lote:                lotId[2],
+    cantidad_actual:        NumberInt(300),
+    stock_minimo_seguridad: NumberInt(60),
+    fecha_ultima_auditoria: new Date("2026-05-01")
+  },
+
+  // Lote 5 — pId[5] SAL08-B50 — [BAJO] cantidad < mínimo
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[2],
+    id_producto:            pId[5],
+    id_lote:                lotId[5],
+    cantidad_actual:        NumberInt(10),   // ← BAJO del mínimo
+    stock_minimo_seguridad: NumberInt(250),
+    fecha_ultima_auditoria: new Date("2026-05-12")
+  },
+
+  // Lote 8 — pId[8] SAL06-B40 — stock normal
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[2],
+    id_producto:            pId[8],
+    id_lote:                lotId[8],
+    cantidad_actual:        NumberInt(200),
+    stock_minimo_seguridad: NumberInt(40),
+    fecha_ultima_auditoria: new Date("2026-05-18")
+  },
+
+  // Lote 11 — pId[1] SAL12-B50 — stock normal
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[2],
+    id_producto:            pId[1],
+    id_lote:                lotId[11],
+    cantidad_actual:        NumberInt(400),
+    stock_minimo_seguridad: NumberInt(75),
+    fecha_ultima_auditoria: new Date("2026-05-20")
+  },
+
+  // ══════════════════════════════════════════
+  // BODEGA SUR (capacidad: 2000 bultos)
+  // Total FORZADO a 2000 → LLENA [RQF061]
+  // ══════════════════════════════════════════
+
+  // Lote 3 — pId[3] SAL10-B50
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[3],
+    id_producto:            pId[3],
+    id_lote:                lotId[3],
+    cantidad_actual:        NumberInt(700),  // parcial
+    stock_minimo_seguridad: NumberInt(80),
+    fecha_ultima_auditoria: new Date("2026-05-05")
+  },
+
+  // Lote 6 — pId[6] SAL08-B40
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[3],
+    id_producto:            pId[6],
+    id_lote:                lotId[6],
+    cantidad_actual:        NumberInt(650),  // parcial
+    stock_minimo_seguridad: NumberInt(60),
+    fecha_ultima_auditoria: new Date("2026-05-14")
+  },
+
+  // Lote 9 — pId[9] SAL04-B50
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[3],
+    id_producto:            pId[9],
+    id_lote:                lotId[9],
+    cantidad_actual:        NumberInt(650),  // parcial
+    stock_minimo_seguridad: NumberInt(50),
+    fecha_ultima_auditoria: new Date("2026-05-21")
+  },
+
+  // ─── Suma parcial Bodega Sur hasta aquí: 2000 ───
+  // 700 + 650 + 650 = 2000 >= capacidad_maxima_bultos(2000) → ALERTA RQF061
+
+
+  // ══════════════════════════════════════════
+  // STOCK EN TIENDAS (para completar el modelo)
+  // No participan en RQF060/061 (solo BODEGAs)
+  // ══════════════════════════════════════════
+
+  // Tienda 1
+  {
+    tipo_ubicacion:         "TIENDA",
+    id_ubicacion:           tId[1],
+    id_producto:            pId[1],
+    id_lote:                lotId[1],
+    cantidad_actual:        NumberInt(80),
+    stock_minimo_seguridad: NumberInt(10),
+    fecha_ultima_auditoria: new Date("2026-05-28")
+  },
+  {
+    tipo_ubicacion:         "TIENDA",
+    id_ubicacion:           tId[1],
+    id_producto:            pId[2],
+    id_lote:                lotId[2],
+    cantidad_actual:        NumberInt(45),
+    stock_minimo_seguridad: NumberInt(10),
+    fecha_ultima_auditoria: new Date("2026-05-28")
+  },
+
+  // Tienda 2
+  {
+    tipo_ubicacion:         "TIENDA",
+    id_ubicacion:           tId[2],
+    id_producto:            pId[3],
+    id_lote:                lotId[3],
+    cantidad_actual:        NumberInt(60),
+    stock_minimo_seguridad: NumberInt(10),
+    fecha_ultima_auditoria: new Date("2026-05-27")
+  },
+  {
+    tipo_ubicacion:         "TIENDA",
+    id_ubicacion:           tId[2],
+    id_producto:            pId[4],
+    id_lote:                lotId[4],
+    cantidad_actual:        NumberInt(30),
+    stock_minimo_seguridad: NumberInt(10),
+    fecha_ultima_auditoria: new Date("2026-05-27")
+  },
+
+  // Tienda 3
+  {
+    tipo_ubicacion:         "TIENDA",
+    id_ubicacion:           tId[3],
+    id_producto:            pId[5],
+    id_lote:                lotId[5],
+    cantidad_actual:        NumberInt(50),
+    stock_minimo_seguridad: NumberInt(10),
+    fecha_ultima_auditoria: new Date("2026-05-26")
+  },
+
+  // Tienda 4
+  {
+    tipo_ubicacion:         "TIENDA",
+    id_ubicacion:           tId[4],
+    id_producto:            pId[1],
+    id_lote:                lotId[11],
+    cantidad_actual:        NumberInt(35),
+    stock_minimo_seguridad: NumberInt(5),
+    fecha_ultima_auditoria: new Date("2026-05-25")
+  },
+
+  // Tienda 5
+  {
+    tipo_ubicacion:         "TIENDA",
+    id_ubicacion:           tId[5],
+    id_producto:            pId[2],
+    id_lote:                lotId[12],
+    cantidad_actual:        NumberInt(20),
+    stock_minimo_seguridad: NumberInt(5),
+    fecha_ultima_auditoria: new Date("2026-05-24")
+  },
+]);
+
+print("✔ Stock insertado: " + db.stock.countDocuments() + " registros.");
+
+
+// ─────────────────────────────────────────────────────────────
+// VERIFICACIÓN INMEDIATA
+// ─────────────────────────────────────────────────────────────
+print("\n══ Verificación RQF060 — Registros con stock bajo el mínimo ══");
+const stockBajo = db.stock.find({
+  tipo_ubicacion: "BODEGA",
+  $expr: { $lt: ["$cantidad_actual", "$stock_minimo_seguridad"] }
+}).toArray();
+
+if (stockBajo.length === 0) {
+  print("  ✘ Ningún registro bajo el mínimo — revisar datos.");
+} else {
+  stockBajo.forEach(function(s) {
+    const prod   = db.productos.findOne({ _id: s.id_producto });
+    const bodega = db.bodegas.findOne({ _id: s.id_ubicacion });
+    print("  ✔ [BAJO] Bodega: " + (bodega ? bodega.nombre_bodega : s.id_ubicacion) +
+          " | Producto: " + (prod ? prod.codigo_tipo_sal : s.id_producto) +
+          " | actual: " + s.cantidad_actual +
+          " | mínimo: " + s.stock_minimo_seguridad);
+  });
+}
+
+print("\n══ Verificación RQF061 — Bodegas llenas o sobre capacidad ══");
+db.stock.aggregate([
+  { $match: { tipo_ubicacion: "BODEGA" } },
+  { $group: {
+      _id:          "$id_ubicacion",
+      total_bultos: { $sum: "$cantidad_actual" }
+  }}
+]).forEach(function(r) {
+  const bodega = db.bodegas.findOne({ _id: r._id });
+  if (!bodega) return;
+  const estado = r.total_bultos >= bodega.capacidad_maxima_bultos ? "✔ [LLENA]" : "  (normal)";
+  print("  " + estado + " " + bodega.nombre_bodega +
+        ": " + r.total_bultos + " / " + bodega.capacidad_maxima_bultos + " bultos");
+});
+
+print("\n══ Resumen de stock por colección ══");
+print("  BODEGA registros : " + db.stock.countDocuments({ tipo_ubicacion: "BODEGA" }));
+print("  TIENDA registros : " + db.stock.countDocuments({ tipo_ubicacion: "TIENDA" }));
+print("  Total            : " + db.stock.countDocuments());
+
 
 // ============================================================
 // MÓDULO 8 — Alertas automáticas
@@ -1591,3 +1979,7 @@ function rqf070_trazabilidadLote(numeroLote) {
 rqf070_trazabilidadLote("LOTE-001");
 rqf070_trazabilidadLote("LOTE-003");
 
+
+print("\n══════════════════════════════════════════");
+print("  MÓDULO 8 y 9 ejecutados correctamente");
+print("══════════════════════════════════════════\n");
