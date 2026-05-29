@@ -1,0 +1,1453 @@
+// ============================================================
+// MIGRACIÓN SQL → MongoDB
+// salinas_del_cravo — Schema completo
+// Compatible con MongoDB 6.x+
+// ============================================================
+db.dropDatabase()
+use("salinas_del_cravo");
+
+// ─────────────────────────────────────────
+// COLECCIÓN: usuarios
+// Equivale a: usuario
+// ─────────────────────────────────────────
+db.createCollection("usuarios", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["nombre_completo", "username", "email", "password_hash",
+                 "password_salt", "numero_documento", "rol", "estado_activo"],
+      properties: {
+        nombre_completo:     { bsonType: "string" },
+        username:            { bsonType: "string" },
+        email:               { bsonType: "string" },
+        password_hash:       { bsonType: "string" },
+        password_salt:       { bsonType: "string" },
+        numero_documento:    { bsonType: "string" },
+        rol:                 { bsonType: "string", enum: ["ADMIN", "VENDEDOR"] },
+        estado_activo:       { bsonType: "bool" },
+        fecha_creacion:      { bsonType: "date" },
+        fecha_desactivacion: { bsonType: ["date", "null"] },
+        ultimo_acceso:       { bsonType: ["date", "null"] }
+      }
+    }
+  }
+});
+
+db.usuarios.createIndex({ username: 1 },         { unique: true });
+db.usuarios.createIndex({ email: 1 },            { unique: true });
+db.usuarios.createIndex({ numero_documento: 1 }, { unique: true });
+
+
+// ─────────────────────────────────────────
+// COLECCIÓN: sesiones
+// Equivale a: sesion_usuario
+// Decisión: REFERENCE (uno-a-muchísimos)
+// ─────────────────────────────────────────
+db.createCollection("sesiones", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["id_usuario", "token_sesion", "fecha_inicio", "estado_sesion"],
+      properties: {
+        id_usuario:    { bsonType: "objectId" },
+        token_sesion:  { bsonType: "string" },
+        fecha_inicio:  { bsonType: "date" },
+        fecha_cierre:  { bsonType: ["date", "null"] },
+        estado_sesion: { bsonType: "string", enum: ["ABIERTA", "CERRADA"] }
+      }
+    }
+  }
+});
+
+db.sesiones.createIndex({ token_sesion: 1 }, { unique: true });
+db.sesiones.createIndex({ id_usuario: 1 });
+db.sesiones.createIndex({ estado_sesion: 1, id_usuario: 1 });
+
+
+// ─────────────────────────────────────────
+// COLECCIÓN: clientes
+// Equivale a: cliente
+// ─────────────────────────────────────────
+db.createCollection("clientes", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["nit_cedula", "nombre_cliente", "tipo", "estado_activo"],
+      properties: {
+        nit_cedula:        { bsonType: "string" },
+        nombre_cliente:    { bsonType: "string" },
+        telefono:          { bsonType: ["string", "null"] },
+        email:             { bsonType: ["string", "null"] },
+        direccion_entrega: { bsonType: ["string", "null"] },
+        tipo:              { bsonType: "string", enum: ["VETERINARIA", "GANADERO"] },
+        estado_activo:     { bsonType: "bool" }
+      }
+    }
+  }
+});
+
+db.clientes.createIndex({ nit_cedula: 1 }, { unique: true });
+
+
+// ─────────────────────────────────────────
+// COLECCIÓN: categorias
+// Equivale a: categoria
+// ─────────────────────────────────────────
+db.createCollection("categorias", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["codigo_categoria", "nombre_categoria", "estado_activo"],
+      properties: {
+        codigo_categoria:    { bsonType: "string" },
+        nombre_categoria:    { bsonType: "string" },
+        descripcion_uso:     { bsonType: ["string", "null"] },
+        porcentaje_fosforo:  { bsonType: ["int", "null"],
+                               minimum: 0, maximum: 100 },
+        estado_activo:       { bsonType: "bool" },
+        fecha_creacion:      { bsonType: "date" },
+        fecha_desactivacion: { bsonType: ["date", "null"] }
+      }
+    }
+  }
+});
+
+db.categorias.createIndex({ codigo_categoria: 1 }, { unique: true });
+db.categorias.createIndex({ nombre_categoria: 1 }, { unique: true });
+
+
+// ─────────────────────────────────────────
+// COLECCIÓN: productos
+// Equivale a: producto
+// Decisión: DENORMALIZA nombre y código de categoria
+//           (se lee siempre junto; categoria cambia rarísimo)
+// ─────────────────────────────────────────
+db.createCollection("productos", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["codigo_tipo_sal", "id_categoria", "nombre_sal_mineralizada",
+                 "presentacion", "peso_bulto_kg", "porcentaje_fosforo",
+                 "unidad_medida", "estado_activo"],
+      properties: {
+        codigo_tipo_sal:         { bsonType: "string" },
+        id_categoria:            { bsonType: "objectId" },
+
+        // Datos denormalizados de categoria (evitar JOIN en lecturas frecuentes)
+        categoria: {
+          bsonType: "object",
+          required: ["codigo", "nombre"],
+          properties: {
+            codigo:  { bsonType: "string" },
+            nombre:  { bsonType: "string" }
+          }
+        },
+
+        nombre_sal_mineralizada: { bsonType: "string" },
+        presentacion:            { bsonType: "string" },
+        peso_bulto_kg:           { bsonType: "int", minimum: 0, exclusiveMinimum: true},
+        porcentaje_fosforo:      { bsonType: "int", minimum: 0, maximum: 100 },
+        unidad_medida:           { bsonType: "string" },
+        descontinuado:           { bsonType: "bool" },
+        estado_activo:           { bsonType: "bool" },
+        fecha_creacion:          { bsonType: "date" },
+        fecha_desactivacion:     { bsonType: ["date", "null"] }
+      }
+    }
+  }
+});
+
+db.productos.createIndex({ codigo_tipo_sal: 1 }, { unique: true });
+db.productos.createIndex({ id_categoria: 1 });
+db.productos.createIndex({ estado_activo: 1 });
+
+
+// ─────────────────────────────────────────
+// COLECCIÓN: bodegas
+// Equivale a: bodega
+// ─────────────────────────────────────────
+db.createCollection("bodegas", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["nombre_bodega", "direccion_fisica",
+                 "capacidad_maxima_bultos", "estado_activo"],
+      properties: {
+        nombre_bodega:           { bsonType: "string" },
+        direccion_fisica:        { bsonType: "string" },
+        capacidad_maxima_bultos: { bsonType: "int", minimum: 1 },
+        estado_activo:           { bsonType: "bool" }
+      }
+    }
+  }
+});
+
+
+// ─────────────────────────────────────────
+// COLECCIÓN: tiendas
+// Equivale a: tienda
+// ─────────────────────────────────────────
+db.createCollection("tiendas", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["nombre_tienda", "direccion", "activo"],
+      properties: {
+        nombre_tienda: { bsonType: "string" },
+        direccion:     { bsonType: "string" },
+        activo:        { bsonType: "bool" }
+      }
+    }
+  }
+});
+
+
+// ─────────────────────────────────────────
+// COLECCIÓN: lotes
+// Equivale a: lote
+// Decisión: REFERENCE a producto y bodega
+//           (uno-a-muchos; muchos lotes por producto)
+// ─────────────────────────────────────────
+db.createCollection("lotes", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["id_producto", "numero_lote", "fecha_produccion",
+                 "fecha_vencimiento", "cantidad_bultos_inicial",
+                 "id_bodega", "id_usuario_productor", "estado_activo"],
+      properties: {
+        id_producto:            { bsonType: "objectId" },
+        id_bodega:              { bsonType: "objectId" },
+        id_usuario_productor:   { bsonType: "objectId" },
+        numero_lote:            { bsonType: "string" },
+        fecha_produccion:       { bsonType: "date" },
+        fecha_vencimiento:      { bsonType: "date" },
+        cantidad_bultos_inicial:{ bsonType: "int", minimum: 1 },
+        estado_activo:          { bsonType: "bool" },
+        observaciones:          { bsonType: ["string", "null"] },
+        fecha_registro:         { bsonType: "date" },
+        fecha_desactivacion:    { bsonType: ["date", "null"] }
+      }
+    }
+  }
+});
+
+db.lotes.createIndex({ id_producto: 1, numero_lote: 1 }, { unique: true });
+db.lotes.createIndex({ id_bodega: 1 });
+db.lotes.createIndex({ fecha_vencimiento: 1 });
+db.lotes.createIndex({ estado_activo: 1 });
+
+
+// ─────────────────────────────────────────
+// COLECCIÓN: stock
+// Equivale a: stock_bodega + stock_tienda (UNIFICADA)
+// Decisión: una sola colección con campo discriminador "tipo_ubicacion"
+//           Elimina la duplicación de esquema idéntico en dos tablas SQL
+// ─────────────────────────────────────────
+db.createCollection("stock", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["tipo_ubicacion", "id_ubicacion", "id_producto",
+                 "id_lote", "cantidad_actual"],
+      properties: {
+        tipo_ubicacion:        { bsonType: "string", enum: ["BODEGA", "TIENDA"] },
+        id_ubicacion:          { bsonType: "objectId" },
+        id_producto:           { bsonType: "objectId" },
+        id_lote:               { bsonType: "objectId" },
+        cantidad_actual:       { bsonType: "int", minimum: 0 },
+        stock_minimo_seguridad:{ bsonType: "int", minimum: 0 },
+        fecha_ultima_auditoria:{ bsonType: "date" }
+      }
+    }
+  }
+});
+
+db.stock.createIndex(
+  { tipo_ubicacion: 1, id_ubicacion: 1, id_producto: 1, id_lote: 1 },
+  { unique: true }
+);
+db.stock.createIndex({ id_producto: 1 });
+db.stock.createIndex({ id_lote: 1 });
+db.stock.createIndex({ cantidad_actual: 1, stock_minimo_seguridad: 1 });
+
+
+// ─────────────────────────────────────────
+// COLECCIÓN: movimientos
+// Equivale a: movimiento_inventario + entrada + salida (UNIFICADA)
+// Decisión: EMBED subtipo (entrada/salida son solo discriminadores)
+//           entrada.tipo_ingreso y salida.tipo_salida → campo "subtipo"
+// ─────────────────────────────────────────
+db.createCollection("movimientos", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["id_producto", "id_lote", "id_usuario",
+                 "tipo_movimiento", "cantidad", "fecha_movimiento"],
+      properties: {
+        id_producto:     { bsonType: "objectId" },
+        id_lote:         { bsonType: "objectId" },
+        id_usuario:      { bsonType: "objectId" },
+        tipo_movimiento: {
+          bsonType: "string",
+          enum: ["ENTRADA", "SALIDA", "VENTA", "DEVOLUCION", "ABASTECIMIENTO"]
+        },
+        subtipo: {
+          bsonType: ["string", "null"],
+          // ENTRADA: PRODUCCION | TRANSFERENCIA | AJUSTE_EXTRA
+          // SALIDA:  TRANSFERENCIA | FALTANTE | PERDIDA | DAÑO
+          enum: ["PRODUCCION", "TRANSFERENCIA", "AJUSTE_EXTRA",
+                 "FALTANTE", "PERDIDA", "DAÑO", null]
+        },
+        cantidad:        { bsonType: "int", minimum: 1 },
+        fecha_movimiento:{ bsonType: "date" },
+        ubicacion: {
+          bsonType: "object",
+          required: ["tipo", "id_ubicacion"],
+          properties: {
+            tipo:        { bsonType: "string", enum: ["BODEGA", "TIENDA"] },
+            id_ubicacion:{ bsonType: "objectId" }
+          }
+        },
+        observaciones: { bsonType: ["string", "null"] }
+      }
+    }
+  }
+});
+
+db.movimientos.createIndex({ id_producto: 1 });
+db.movimientos.createIndex({ id_lote: 1 });
+db.movimientos.createIndex({ fecha_movimiento: -1 });
+db.movimientos.createIndex({ tipo_movimiento: 1 });
+db.movimientos.createIndex({ "ubicacion.id_ubicacion": 1, tipo_movimiento: 1 });
+
+
+// ─────────────────────────────────────────
+// COLECCIÓN: ventas
+// Equivale a: venta + venta_detalle + devolucion_detalle (UNIFICADA)
+// Decisión:
+//   - venta_detalle → EMBED como array "items" (uno-a-pocos, lectura conjunta)
+//   - devolucion_detalle → EMBED como objeto "anulacion" (solo existe si anulada)
+// ─────────────────────────────────────────
+db.createCollection("ventas", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["id_cliente", "id_usuario", "id_tienda",
+                 "fecha_venta", "estado", "items"],
+      properties: {
+        id_cliente:  { bsonType: "objectId" },
+        id_usuario:  { bsonType: "objectId" },
+        id_tienda:   { bsonType: "objectId" },
+        fecha_venta: { bsonType: "date" },
+        estado:      { bsonType: "string", enum: ["ACTIVA", "ANULADA"] },
+
+        // Detalle embebido (equivale a venta_detalle)
+        items: {
+          bsonType: "array",
+          minItems: 1,
+          items: {
+            bsonType: "object",
+            required: ["id_producto", "id_lote", "cantidad", "id_movimiento"],
+            properties: {
+              id_producto:  { bsonType: "objectId" },
+              id_lote:      { bsonType: "objectId" },
+              cantidad:     { bsonType: "int", minimum: 1 },
+              id_movimiento:{ bsonType: "objectId" }
+            }
+          }
+        },
+
+        // Solo existe si estado = ANULADA (equivale a devolucion_detalle)
+        anulacion: {
+          bsonType: "object",
+          properties: {
+            id_usuario_anulo: { bsonType: "objectId" },
+            motivo:           { bsonType: "string" },
+            fecha_anulacion:  { bsonType: "date" },
+            movimientos_devolucion: {
+              bsonType: "array",
+              items: {
+                bsonType: "object",
+                properties: {
+                  id_producto:      { bsonType: "objectId" },
+                  id_lote:          { bsonType: "objectId" },
+                  cantidad_devuelta:{ bsonType: "int", minimum: 1 },
+                  id_movimiento:    { bsonType: "objectId" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+});
+
+db.ventas.createIndex({ id_cliente: 1 });
+db.ventas.createIndex({ id_tienda: 1, fecha_venta: -1 });
+db.ventas.createIndex({ estado: 1 });
+db.ventas.createIndex({ "items.id_producto": 1 });
+db.ventas.createIndex({ "items.id_lote": 1 });
+
+
+// ─────────────────────────────────────────
+// COLECCIÓN: alertas
+// Equivale a: alerta
+// Mejora respecto al SQL: se agrega campo "leida" y "resuelta"
+//   (corrige el problema identificado en la Fase 1)
+// ─────────────────────────────────────────
+db.createCollection("alertas", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["tipo", "mensaje", "fecha_creacion", "leida", "resuelta"],
+      properties: {
+        tipo: {
+          bsonType: "string",
+          enum: ["STOCK_BAJO", "LOTE_PROXIMO_VENCER", "BODEGA_LLENA"]
+        },
+        id_producto:   { bsonType: ["objectId", "null"] },
+        id_lote:       { bsonType: ["objectId", "null"] },
+        id_ubicacion:  { bsonType: ["objectId", "null"] },
+        tipo_ubicacion:{ bsonType: ["string", "null"],
+                         enum: ["BODEGA", "TIENDA", null] },
+        mensaje:       { bsonType: "string" },
+        fecha_creacion:{ bsonType: "date" },
+        leida:         { bsonType: "bool" },
+        resuelta:      { bsonType: "bool" }
+      }
+    }
+  }
+});
+
+db.alertas.createIndex({ leida: 1, resuelta: 1, fecha_creacion: -1 });
+db.alertas.createIndex({ tipo: 1 });
+db.alertas.createIndex({ id_lote: 1 });
+
+// ============================================================
+// SEED MONGODB — salinas_del_cravo
+// Traducción exacta de insersiones.sql al schema de mongo_schema.js
+// Ejecutar en MongoDB Shell: load("salinas_mongo_seed.js")
+//   o pegar directamente en mongosh
+// ============================================================
+
+use("salinas_del_cravo");
+
+// ─────────────────────────────────────────────────────────────
+// LIMPIEZA PREVIA (equivale a los TRUNCATE del SQL)
+// ─────────────────────────────────────────────────────────────
+db.usuarios.deleteMany({});
+db.clientes.deleteMany({});
+db.categorias.deleteMany({});
+db.productos.deleteMany({});
+db.bodegas.deleteMany({});
+db.tiendas.deleteMany({});
+db.lotes.deleteMany({});
+db.movimientos.deleteMany({});
+db.ventas.deleteMany({});
+db.stock.deleteMany({});
+db.sesiones.deleteMany({});
+db.alertas.deleteMany({});
+
+// ─────────────────────────────────────────────────────────────
+// MAPA DE ObjectIds
+// Cada id numérico del SQL se reemplaza por un ObjectId fijo
+// para que las referencias entre colecciones sean consistentes.
+// ─────────────────────────────────────────────────────────────
+
+// Usuarios (id 1..7)
+const uId = {
+  1: new ObjectId("aaaaaa000000000000000001"),
+  2: new ObjectId("aaaaaa000000000000000002"),
+  3: new ObjectId("aaaaaa000000000000000003"),
+  4: new ObjectId("aaaaaa000000000000000004"),
+  5: new ObjectId("aaaaaa000000000000000005"),
+  6: new ObjectId("aaaaaa000000000000000006"),
+  7: new ObjectId("aaaaaa000000000000000007"),
+};
+
+// Categorías (id 1..5)
+const catId = {
+  1: new ObjectId("bbbbbb000000000000000001"),
+  2: new ObjectId("bbbbbb000000000000000002"),
+  3: new ObjectId("bbbbbb000000000000000003"),
+  4: new ObjectId("bbbbbb000000000000000004"),
+  5: new ObjectId("bbbbbb000000000000000005"),
+};
+
+// Productos (id 1..10)
+const pId = {
+  1:  new ObjectId("cccccc000000000000000001"),
+  2:  new ObjectId("cccccc000000000000000002"),
+  3:  new ObjectId("cccccc000000000000000003"),
+  4:  new ObjectId("cccccc000000000000000004"),
+  5:  new ObjectId("cccccc000000000000000005"),
+  6:  new ObjectId("cccccc000000000000000006"),
+  7:  new ObjectId("cccccc000000000000000007"),
+  8:  new ObjectId("cccccc000000000000000008"),
+  9:  new ObjectId("cccccc000000000000000009"),
+  10: new ObjectId("cccccc000000000000000010"),
+};
+
+// Bodegas (id 1..3)
+const bodId = {
+  1: new ObjectId("dddddd000000000000000001"),
+  2: new ObjectId("dddddd000000000000000002"),
+  3: new ObjectId("dddddd000000000000000003"),
+};
+
+// Tiendas (id 1..5)
+const tId = {
+  1: new ObjectId("eeeeee000000000000000001"),
+  2: new ObjectId("eeeeee000000000000000002"),
+  3: new ObjectId("eeeeee000000000000000003"),
+  4: new ObjectId("eeeeee000000000000000004"),
+  5: new ObjectId("eeeeee000000000000000005"),
+};
+
+// Clientes (id 1..50)
+const cliId = {};
+for (let i = 1; i <= 50; i++) {
+  cliId[i] = new ObjectId("ffffff0000000000000" + String(i).padStart(5, "0"));
+}
+
+// Lotes (id 1..20)
+const lotId = {
+  1:  new ObjectId("101010000000000000000001"),
+  2:  new ObjectId("101010000000000000000002"),
+  3:  new ObjectId("101010000000000000000003"),
+  4:  new ObjectId("101010000000000000000004"),
+  5:  new ObjectId("101010000000000000000005"),
+  6:  new ObjectId("101010000000000000000006"),
+  7:  new ObjectId("101010000000000000000007"),
+  8:  new ObjectId("101010000000000000000008"),
+  9:  new ObjectId("101010000000000000000009"),
+  10: new ObjectId("101010000000000000000010"),
+  11: new ObjectId("101010000000000000000011"),
+  12: new ObjectId("101010000000000000000012"),
+  13: new ObjectId("101010000000000000000013"),
+  14: new ObjectId("101010000000000000000014"),
+  15: new ObjectId("101010000000000000000015"),
+  16: new ObjectId("101010000000000000000016"),
+  17: new ObjectId("101010000000000000000017"),
+  18: new ObjectId("101010000000000000000018"),
+  19: new ObjectId("101010000000000000000019"),
+  20: new ObjectId("101010000000000000000020"),
+};
+
+// Movimientos (id 1..115)
+const movId = {};
+for (let i = 1; i <= 115; i++) {
+  movId[i] = new ObjectId("202020000000000000" + String(i).padStart(6, "0"));
+}
+
+// Ventas (id 1..50)
+const venId = {};
+for (let i = 1; i <= 50; i++) {
+  venId[i] = new ObjectId("303030000000000000" + String(i).padStart(6, "0"));
+}
+
+
+// ─────────────────────────────────────────────────────────────
+// 1. USUARIOS  (SQL tabla: usuario)
+//    2 ADMIN + 5 VENDEDOR
+// ─────────────────────────────────────────────────────────────
+db.usuarios.insertMany([
+  { _id: uId[1], nombre_completo: "Administrador 1", username: "admin1", email: "admin1@sal.com", password_hash: "hash_dummy", password_salt: "salt_dummy", numero_documento: "1001", rol: "ADMIN",    estado_activo: true,  fecha_creacion: new Date(), fecha_desactivacion: null, ultimo_acceso: null },
+  { _id: uId[2], nombre_completo: "Administrador 2", username: "admin2", email: "admin2@sal.com", password_hash: "hash_dummy", password_salt: "salt_dummy", numero_documento: "1002", rol: "ADMIN",    estado_activo: true,  fecha_creacion: new Date(), fecha_desactivacion: null, ultimo_acceso: null },
+  { _id: uId[3], nombre_completo: "Vendedor 1",      username: "vend1",  email: "vend1@sal.com",  password_hash: "hash_dummy", password_salt: "salt_dummy", numero_documento: "2001", rol: "VENDEDOR", estado_activo: true,  fecha_creacion: new Date(), fecha_desactivacion: null, ultimo_acceso: null },
+  { _id: uId[4], nombre_completo: "Vendedor 2",      username: "vend2",  email: "vend2@sal.com",  password_hash: "hash_dummy", password_salt: "salt_dummy", numero_documento: "2002", rol: "VENDEDOR", estado_activo: true,  fecha_creacion: new Date(), fecha_desactivacion: null, ultimo_acceso: null },
+  { _id: uId[5], nombre_completo: "Vendedor 3",      username: "vend3",  email: "vend3@sal.com",  password_hash: "hash_dummy", password_salt: "salt_dummy", numero_documento: "2003", rol: "VENDEDOR", estado_activo: true,  fecha_creacion: new Date(), fecha_desactivacion: null, ultimo_acceso: null },
+  { _id: uId[6], nombre_completo: "Vendedor 4",      username: "vend4",  email: "vend4@sal.com",  password_hash: "hash_dummy", password_salt: "salt_dummy", numero_documento: "2004", rol: "VENDEDOR", estado_activo: true,  fecha_creacion: new Date(), fecha_desactivacion: null, ultimo_acceso: null },
+  { _id: uId[7], nombre_completo: "Vendedor 5",      username: "vend5",  email: "vend5@sal.com",  password_hash: "hash_dummy", password_salt: "salt_dummy", numero_documento: "2005", rol: "VENDEDOR", estado_activo: true,  fecha_creacion: new Date(), fecha_desactivacion: null, ultimo_acceso: null },
+]);
+print("✔ usuarios insertados: " + db.usuarios.countDocuments());
+
+
+// ─────────────────────────────────────────────────────────────
+// 2. CATEGORÍAS  (SQL tabla: categoria)
+//    5 categorías
+// ─────────────────────────────────────────────────────────────
+db.categorias.insertMany([
+  { _id: catId[1], codigo_categoria: "CAT-12", nombre_categoria: "Sal 12%", descripcion_uso: "Alto fósforo",      porcentaje_fosforo: 12, estado_activo: true, fecha_creacion: new Date(), fecha_desactivacion: null },
+  { _id: catId[2], codigo_categoria: "CAT-10", nombre_categoria: "Sal 10%", descripcion_uso: "Fósforo medio-alto", porcentaje_fosforo: 10, estado_activo: true, fecha_creacion: new Date(), fecha_desactivacion: null },
+  { _id: catId[3], codigo_categoria: "CAT-08", nombre_categoria: "Sal 8%",  descripcion_uso: "Doble propósito",   porcentaje_fosforo: 8,  estado_activo: true, fecha_creacion: new Date(), fecha_desactivacion: null },
+  { _id: catId[4], codigo_categoria: "CAT-06", nombre_categoria: "Sal 6%",  descripcion_uso: "Ceba",              porcentaje_fosforo: 6,  estado_activo: true, fecha_creacion: new Date(), fecha_desactivacion: null },
+  { _id: catId[5], codigo_categoria: "CAT-04", nombre_categoria: "Sal 4%",  descripcion_uso: "Bajo fósforo",      porcentaje_fosforo: 4,  estado_activo: true, fecha_creacion: new Date(), fecha_desactivacion: null },
+]);
+print("✔ categorias insertadas: " + db.categorias.countDocuments());
+
+
+// ─────────────────────────────────────────────────────────────
+// 3. PRODUCTOS  (SQL tabla: producto)
+//    10 productos — con datos de categoria DENORMALIZADOS
+//    según el schema: campo embebido "categoria: { codigo, nombre }"
+// ─────────────────────────────────────────────────────────────
+db.productos.insertMany([
+  { _id: pId[1],  codigo_tipo_sal: "SAL12-B50", id_categoria: catId[1], categoria: { codigo: "CAT-12", nombre: "Sal 12%" }, nombre_sal_mineralizada: "Sal 12% Bulto 50kg", presentacion: "bulto 50kg", peso_bulto_kg: 50, porcentaje_fosforo: 12, unidad_medida: "bulto", descontinuado: false, estado_activo: true, fecha_creacion: new Date(), fecha_desactivacion: null },
+  { _id: pId[2],  codigo_tipo_sal: "SAL12-B40", id_categoria: catId[1], categoria: { codigo: "CAT-12", nombre: "Sal 12%" }, nombre_sal_mineralizada: "Sal 12% Bulto 40kg", presentacion: "bulto 40kg", peso_bulto_kg: 40, porcentaje_fosforo: 12, unidad_medida: "bulto", descontinuado: false, estado_activo: true, fecha_creacion: new Date(), fecha_desactivacion: null },
+  { _id: pId[3],  codigo_tipo_sal: "SAL10-B50", id_categoria: catId[2], categoria: { codigo: "CAT-10", nombre: "Sal 10%" }, nombre_sal_mineralizada: "Sal 10% Bulto 50kg", presentacion: "bulto 50kg", peso_bulto_kg: 50, porcentaje_fosforo: 10, unidad_medida: "bulto", descontinuado: false, estado_activo: true, fecha_creacion: new Date(), fecha_desactivacion: null },
+  { _id: pId[4],  codigo_tipo_sal: "SAL10-B40", id_categoria: catId[2], categoria: { codigo: "CAT-10", nombre: "Sal 10%" }, nombre_sal_mineralizada: "Sal 10% Bulto 40kg", presentacion: "bulto 40kg", peso_bulto_kg: 40, porcentaje_fosforo: 10, unidad_medida: "bulto", descontinuado: false, estado_activo: true, fecha_creacion: new Date(), fecha_desactivacion: null },
+  { _id: pId[5],  codigo_tipo_sal: "SAL08-B50", id_categoria: catId[3], categoria: { codigo: "CAT-08", nombre: "Sal 8%"  }, nombre_sal_mineralizada: "Sal 8% Bulto 50kg",  presentacion: "bulto 50kg", peso_bulto_kg: 50, porcentaje_fosforo: 8,  unidad_medida: "bulto", descontinuado: false, estado_activo: true, fecha_creacion: new Date(), fecha_desactivacion: null },
+  { _id: pId[6],  codigo_tipo_sal: "SAL08-B40", id_categoria: catId[3], categoria: { codigo: "CAT-08", nombre: "Sal 8%"  }, nombre_sal_mineralizada: "Sal 8% Bulto 40kg",  presentacion: "bulto 40kg", peso_bulto_kg: 40, porcentaje_fosforo: 8,  unidad_medida: "bulto", descontinuado: false, estado_activo: true, fecha_creacion: new Date(), fecha_desactivacion: null },
+  { _id: pId[7],  codigo_tipo_sal: "SAL06-B50", id_categoria: catId[4], categoria: { codigo: "CAT-06", nombre: "Sal 6%"  }, nombre_sal_mineralizada: "Sal 6% Bulto 50kg",  presentacion: "bulto 50kg", peso_bulto_kg: 50, porcentaje_fosforo: 6,  unidad_medida: "bulto", descontinuado: false, estado_activo: true, fecha_creacion: new Date(), fecha_desactivacion: null },
+  { _id: pId[8],  codigo_tipo_sal: "SAL06-B40", id_categoria: catId[4], categoria: { codigo: "CAT-06", nombre: "Sal 6%"  }, nombre_sal_mineralizada: "Sal 6% Bulto 40kg",  presentacion: "bulto 40kg", peso_bulto_kg: 40, porcentaje_fosforo: 6,  unidad_medida: "bulto", descontinuado: false, estado_activo: true, fecha_creacion: new Date(), fecha_desactivacion: null },
+  { _id: pId[9],  codigo_tipo_sal: "SAL04-B50", id_categoria: catId[5], categoria: { codigo: "CAT-04", nombre: "Sal 4%"  }, nombre_sal_mineralizada: "Sal 4% Bulto 50kg",  presentacion: "bulto 50kg", peso_bulto_kg: 50, porcentaje_fosforo: 4,  unidad_medida: "bulto", descontinuado: false, estado_activo: true, fecha_creacion: new Date(), fecha_desactivacion: null },
+  { _id: pId[10], codigo_tipo_sal: "SAL04-B40", id_categoria: catId[5], categoria: { codigo: "CAT-04", nombre: "Sal 4%"  }, nombre_sal_mineralizada: "Sal 4% Bulto 40kg",  presentacion: "bulto 40kg", peso_bulto_kg: 40, porcentaje_fosforo: 4,  unidad_medida: "bulto", descontinuado: false, estado_activo: true, fecha_creacion: new Date(), fecha_desactivacion: null },
+]);
+print("✔ productos insertados: " + db.productos.countDocuments());
+
+
+// ─────────────────────────────────────────────────────────────
+// 4. BODEGAS  (SQL tabla: bodega)
+//    3 bodegas
+// ─────────────────────────────────────────────────────────────
+db.bodegas.insertMany([
+  { _id: bodId[1], nombre_bodega: "Bodega Central", direccion_fisica: "Sogamoso Centro", capacidad_maxima_bultos: 5000, estado_activo: true },
+  { _id: bodId[2], nombre_bodega: "Bodega Norte",   direccion_fisica: "Sogamoso Norte",  capacidad_maxima_bultos: 3000, estado_activo: true },
+  { _id: bodId[3], nombre_bodega: "Bodega Sur",     direccion_fisica: "Sogamoso Sur",    capacidad_maxima_bultos: 2000, estado_activo: true },
+]);
+print("✔ bodegas insertadas: " + db.bodegas.countDocuments());
+
+
+// ─────────────────────────────────────────────────────────────
+// 5. TIENDAS  (SQL tabla: tienda)
+//    5 tiendas
+// ─────────────────────────────────────────────────────────────
+db.tiendas.insertMany([
+  { _id: tId[1], nombre_tienda: "Tienda Principal",     direccion: "Centro",          activo: true },
+  { _id: tId[2], nombre_tienda: "Tienda Norte",         direccion: "Norte",           activo: true },
+  { _id: tId[3], nombre_tienda: "Tienda Sur",           direccion: "Sur",             activo: true },
+  { _id: tId[4], nombre_tienda: "Tienda Express",       direccion: "Av. Principal",   activo: true },
+  { _id: tId[5], nombre_tienda: "Tienda Distribuidora", direccion: "Zona Industrial", activo: true },
+]);
+print("✔ tiendas insertadas: " + db.tiendas.countDocuments());
+
+
+// ─────────────────────────────────────────────────────────────
+// 6. CLIENTES  (SQL tabla: cliente)
+//    50 clientes, alternando VETERINARIA / GANADERO
+// ─────────────────────────────────────────────────────────────
+const clientesDocs = [];
+const tiposCliente = ["VETERINARIA", "GANADERO"];
+for (let i = 1; i <= 50; i++) {
+  clientesDocs.push({
+    _id:            cliId[i],
+    nit_cedula:     "8000000" + String(i).padStart(2, "0"),
+    nombre_cliente: "Cliente " + i,
+    telefono:       "300000" + String(i).padStart(2, "0"),
+    email:          "c" + i + "@mail.com",
+    tipo:           tiposCliente[(i - 1) % 2],   // impares=VETERINARIA, pares=GANADERO
+    estado_activo:  true,
+    direccion_entrega: null,
+  });
+}
+db.clientes.insertMany(clientesDocs);
+print("✔ clientes insertados: " + db.clientes.countDocuments());
+
+
+// ─────────────────────────────────────────────────────────────
+// 7. LOTES  (SQL tabla: lote)
+//    20 lotes de producción
+// ─────────────────────────────────────────────────────────────
+db.lotes.insertMany([
+  { _id: lotId[1],  id_producto: pId[1],  id_bodega: bodId[1], id_usuario_productor: uId[1], numero_lote: "LOTE-001", fecha_produccion: new Date("2026-01-10"), fecha_vencimiento: new Date("2026-07-10"), cantidad_bultos_inicial: 600, estado_activo: true, observaciones: null, fecha_registro: new Date(), fecha_desactivacion: null },
+  { _id: lotId[2],  id_producto: pId[2],  id_bodega: bodId[2], id_usuario_productor: uId[1], numero_lote: "LOTE-002", fecha_produccion: new Date("2026-02-15"), fecha_vencimiento: new Date("2026-08-15"), cantidad_bultos_inicial: 450, estado_activo: true, observaciones: null, fecha_registro: new Date(), fecha_desactivacion: null },
+  { _id: lotId[3],  id_producto: pId[3],  id_bodega: bodId[3], id_usuario_productor: uId[1], numero_lote: "LOTE-003", fecha_produccion: new Date("2026-03-01"), fecha_vencimiento: new Date("2026-09-01"), cantidad_bultos_inicial: 500, estado_activo: true, observaciones: null, fecha_registro: new Date(), fecha_desactivacion: null },
+  { _id: lotId[4],  id_producto: pId[4],  id_bodega: bodId[1], id_usuario_productor: uId[1], numero_lote: "LOTE-004", fecha_produccion: new Date("2026-03-15"), fecha_vencimiento: new Date("2026-09-15"), cantidad_bultos_inicial: 350, estado_activo: true, observaciones: null, fecha_registro: new Date(), fecha_desactivacion: null },
+  { _id: lotId[5],  id_producto: pId[5],  id_bodega: bodId[2], id_usuario_productor: uId[1], numero_lote: "LOTE-005", fecha_produccion: new Date("2026-04-01"), fecha_vencimiento: new Date("2026-10-01"), cantidad_bultos_inicial: 700, estado_activo: true, observaciones: null, fecha_registro: new Date(), fecha_desactivacion: null },
+  { _id: lotId[6],  id_producto: pId[6],  id_bodega: bodId[3], id_usuario_productor: uId[1], numero_lote: "LOTE-006", fecha_produccion: new Date("2026-04-10"), fecha_vencimiento: new Date("2026-10-10"), cantidad_bultos_inicial: 400, estado_activo: true, observaciones: null, fecha_registro: new Date(), fecha_desactivacion: null },
+  { _id: lotId[7],  id_producto: pId[7],  id_bodega: bodId[1], id_usuario_productor: uId[1], numero_lote: "LOTE-007", fecha_produccion: new Date("2026-04-20"), fecha_vencimiento: new Date("2026-10-20"), cantidad_bultos_inicial: 550, estado_activo: true, observaciones: null, fecha_registro: new Date(), fecha_desactivacion: null },
+  { _id: lotId[8],  id_producto: pId[8],  id_bodega: bodId[2], id_usuario_productor: uId[1], numero_lote: "LOTE-008", fecha_produccion: new Date("2026-05-01"), fecha_vencimiento: new Date("2026-11-01"), cantidad_bultos_inicial: 300, estado_activo: true, observaciones: null, fecha_registro: new Date(), fecha_desactivacion: null },
+  { _id: lotId[9],  id_producto: pId[9],  id_bodega: bodId[3], id_usuario_productor: uId[1], numero_lote: "LOTE-009", fecha_produccion: new Date("2026-05-10"), fecha_vencimiento: new Date("2026-11-10"), cantidad_bultos_inicial: 650, estado_activo: true, observaciones: null, fecha_registro: new Date(), fecha_desactivacion: null },
+  { _id: lotId[10], id_producto: pId[10], id_bodega: bodId[1], id_usuario_productor: uId[1], numero_lote: "LOTE-010", fecha_produccion: new Date("2026-05-20"), fecha_vencimiento: new Date("2026-11-20"), cantidad_bultos_inicial: 480, estado_activo: true, observaciones: null, fecha_registro: new Date(), fecha_desactivacion: null },
+  { _id: lotId[11], id_producto: pId[1],  id_bodega: bodId[2], id_usuario_productor: uId[1], numero_lote: "LOTE-011", fecha_produccion: new Date("2026-06-01"), fecha_vencimiento: new Date("2026-12-01"), cantidad_bultos_inicial: 500, estado_activo: true, observaciones: null, fecha_registro: new Date(), fecha_desactivacion: null },
+  { _id: lotId[12], id_producto: pId[2],  id_bodega: bodId[3], id_usuario_productor: uId[1], numero_lote: "LOTE-012", fecha_produccion: new Date("2026-06-05"), fecha_vencimiento: new Date("2026-12-05"), cantidad_bultos_inicial: 420, estado_activo: true, observaciones: null, fecha_registro: new Date(), fecha_desactivacion: null },
+  { _id: lotId[13], id_producto: pId[3],  id_bodega: bodId[1], id_usuario_productor: uId[1], numero_lote: "LOTE-013", fecha_produccion: new Date("2026-06-10"), fecha_vencimiento: new Date("2026-12-10"), cantidad_bultos_inicial: 380, estado_activo: true, observaciones: null, fecha_registro: new Date(), fecha_desactivacion: null },
+  { _id: lotId[14], id_producto: pId[4],  id_bodega: bodId[2], id_usuario_productor: uId[1], numero_lote: "LOTE-014", fecha_produccion: new Date("2026-06-15"), fecha_vencimiento: new Date("2026-12-15"), cantidad_bultos_inicial: 600, estado_activo: true, observaciones: null, fecha_registro: new Date(), fecha_desactivacion: null },
+  { _id: lotId[15], id_producto: pId[5],  id_bodega: bodId[3], id_usuario_productor: uId[1], numero_lote: "LOTE-015", fecha_produccion: new Date("2026-06-20"), fecha_vencimiento: new Date("2026-12-20"), cantidad_bultos_inicial: 450, estado_activo: true, observaciones: null, fecha_registro: new Date(), fecha_desactivacion: null },
+  { _id: lotId[16], id_producto: pId[6],  id_bodega: bodId[1], id_usuario_productor: uId[1], numero_lote: "LOTE-016", fecha_produccion: new Date("2026-06-25"), fecha_vencimiento: new Date("2026-12-25"), cantidad_bultos_inicial: 520, estado_activo: true, observaciones: null, fecha_registro: new Date(), fecha_desactivacion: null },
+  { _id: lotId[17], id_producto: pId[7],  id_bodega: bodId[2], id_usuario_productor: uId[1], numero_lote: "LOTE-017", fecha_produccion: new Date("2026-07-01"), fecha_vencimiento: new Date("2027-01-01"), cantidad_bultos_inicial: 400, estado_activo: true, observaciones: null, fecha_registro: new Date(), fecha_desactivacion: null },
+  { _id: lotId[18], id_producto: pId[8],  id_bodega: bodId[3], id_usuario_productor: uId[1], numero_lote: "LOTE-018", fecha_produccion: new Date("2026-07-05"), fecha_vencimiento: new Date("2027-01-05"), cantidad_bultos_inicial: 350, estado_activo: true, observaciones: null, fecha_registro: new Date(), fecha_desactivacion: null },
+  { _id: lotId[19], id_producto: pId[9],  id_bodega: bodId[1], id_usuario_productor: uId[1], numero_lote: "LOTE-019", fecha_produccion: new Date("2026-07-10"), fecha_vencimiento: new Date("2027-01-10"), cantidad_bultos_inicial: 700, estado_activo: true, observaciones: null, fecha_registro: new Date(), fecha_desactivacion: null },
+  { _id: lotId[20], id_producto: pId[10], id_bodega: bodId[2], id_usuario_productor: uId[1], numero_lote: "LOTE-020", fecha_produccion: new Date("2026-07-15"), fecha_vencimiento: new Date("2027-01-15"), cantidad_bultos_inicial: 550, estado_activo: true, observaciones: null, fecha_registro: new Date(), fecha_desactivacion: null },
+]);
+print("✔ lotes insertados: " + db.lotes.countDocuments());
+
+
+// ─────────────────────────────────────────────────────────────
+// 8. MOVIMIENTOS  (SQL tablas: movimiento_inventario + entrada + salida)
+//    Las tablas entrada/salida eran solo discriminadores de subtipo.
+//    Aquí se fusionan en un solo documento con campo "subtipo".
+//    Colección: movimientos
+//
+//    id_mov  1-20  → ENTRADA / subtipo PRODUCCION    (lotes 1-20)
+//    id_mov 21-23  → ENTRADA / subtipo AJUSTE_EXTRA
+//    id_mov 24-26  → SALIDA  / subtipo DAÑO, PERDIDA, FALTANTE
+//    id_mov 27-30  → SALIDA+ENTRADA transferencias bodega
+//    id_mov 31-40  → SALIDA bodega + ABASTECIMIENTO tienda
+//    id_mov 41-115 → VENTA   / subtipo null
+// ─────────────────────────────────────────────────────────────
+
+// ── 8A: Movimientos 1-20: ENTRADAS de producción (un lote por movimiento) ──
+db.movimientos.insertMany([
+  { _id: movId[1],  id_producto: pId[1],  id_lote: lotId[1],  id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "PRODUCCION", cantidad: 600, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[1] }, observaciones: "Lote LOTE-001" },
+  { _id: movId[2],  id_producto: pId[2],  id_lote: lotId[2],  id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "PRODUCCION", cantidad: 450, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[2] }, observaciones: "Lote LOTE-002" },
+  { _id: movId[3],  id_producto: pId[3],  id_lote: lotId[3],  id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "PRODUCCION", cantidad: 500, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[3] }, observaciones: "Lote LOTE-003" },
+  { _id: movId[4],  id_producto: pId[4],  id_lote: lotId[4],  id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "PRODUCCION", cantidad: 350, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[1] }, observaciones: "Lote LOTE-004" },
+  { _id: movId[5],  id_producto: pId[5],  id_lote: lotId[5],  id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "PRODUCCION", cantidad: 700, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[2] }, observaciones: "Lote LOTE-005" },
+  { _id: movId[6],  id_producto: pId[6],  id_lote: lotId[6],  id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "PRODUCCION", cantidad: 400, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[3] }, observaciones: "Lote LOTE-006" },
+  { _id: movId[7],  id_producto: pId[7],  id_lote: lotId[7],  id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "PRODUCCION", cantidad: 550, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[1] }, observaciones: "Lote LOTE-007" },
+  { _id: movId[8],  id_producto: pId[8],  id_lote: lotId[8],  id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "PRODUCCION", cantidad: 300, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[2] }, observaciones: "Lote LOTE-008" },
+  { _id: movId[9],  id_producto: pId[9],  id_lote: lotId[9],  id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "PRODUCCION", cantidad: 650, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[3] }, observaciones: "Lote LOTE-009" },
+  { _id: movId[10], id_producto: pId[10], id_lote: lotId[10], id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "PRODUCCION", cantidad: 480, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[1] }, observaciones: "Lote LOTE-010" },
+  { _id: movId[11], id_producto: pId[1],  id_lote: lotId[11], id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "PRODUCCION", cantidad: 500, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[2] }, observaciones: "Lote LOTE-011" },
+  { _id: movId[12], id_producto: pId[2],  id_lote: lotId[12], id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "PRODUCCION", cantidad: 420, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[3] }, observaciones: "Lote LOTE-012" },
+  { _id: movId[13], id_producto: pId[3],  id_lote: lotId[13], id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "PRODUCCION", cantidad: 380, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[1] }, observaciones: "Lote LOTE-013" },
+  { _id: movId[14], id_producto: pId[4],  id_lote: lotId[14], id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "PRODUCCION", cantidad: 600, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[2] }, observaciones: "Lote LOTE-014" },
+  { _id: movId[15], id_producto: pId[5],  id_lote: lotId[15], id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "PRODUCCION", cantidad: 450, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[3] }, observaciones: "Lote LOTE-015" },
+  { _id: movId[16], id_producto: pId[6],  id_lote: lotId[16], id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "PRODUCCION", cantidad: 520, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[1] }, observaciones: "Lote LOTE-016" },
+  { _id: movId[17], id_producto: pId[7],  id_lote: lotId[17], id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "PRODUCCION", cantidad: 400, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[2] }, observaciones: "Lote LOTE-017" },
+  { _id: movId[18], id_producto: pId[8],  id_lote: lotId[18], id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "PRODUCCION", cantidad: 350, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[3] }, observaciones: "Lote LOTE-018" },
+  { _id: movId[19], id_producto: pId[9],  id_lote: lotId[19], id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "PRODUCCION", cantidad: 700, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[1] }, observaciones: "Lote LOTE-019" },
+  { _id: movId[20], id_producto: pId[10], id_lote: lotId[20], id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "PRODUCCION", cantidad: 550, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[2] }, observaciones: "Lote LOTE-020" },
+]);
+
+// ── 8B: Movimientos 21-23: ENTRADAS de ajuste extra ──
+db.movimientos.insertMany([
+  { _id: movId[21], id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "AJUSTE_EXTRA", cantidad: 200, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[1] }, observaciones: "Ajuste extra" },
+  { _id: movId[22], id_producto: pId[3], id_lote: lotId[3], id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "AJUSTE_EXTRA", cantidad: 150, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[3] }, observaciones: "Ajuste extra" },
+  { _id: movId[23], id_producto: pId[5], id_lote: lotId[5], id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "AJUSTE_EXTRA", cantidad: 100, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[2] }, observaciones: "Ajuste extra" },
+]);
+
+// ── 8C: Movimientos 24-26: SALIDAS por daño/pérdida/faltante ──
+db.movimientos.insertMany([
+  { _id: movId[24], id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[1], tipo_movimiento: "SALIDA", subtipo: "DAÑO",    cantidad: 50, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[1] }, observaciones: "Daño" },
+  { _id: movId[25], id_producto: pId[2], id_lote: lotId[2], id_usuario: uId[1], tipo_movimiento: "SALIDA", subtipo: "PERDIDA", cantidad: 30, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[2] }, observaciones: "Pérdida" },
+  { _id: movId[26], id_producto: pId[4], id_lote: lotId[4], id_usuario: uId[1], tipo_movimiento: "SALIDA", subtipo: "FALTANTE",cantidad: 20, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[1] }, observaciones: "Faltante" },
+]);
+
+// ── 8D: Movimientos 27-30: TRANSFERENCIAS entre bodegas (SALIDA + ENTRADA) ──
+// Transferencia 1: Bodega 1 → Bodega 2 · 80 bultos · prod 1 · lote 1
+db.movimientos.insertMany([
+  { _id: movId[27], id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[1], tipo_movimiento: "SALIDA",  subtipo: "TRANSFERENCIA", cantidad: 80, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[1] }, observaciones: "Transferencia a B2" },
+  { _id: movId[28], id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "TRANSFERENCIA", cantidad: 80, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[2] }, observaciones: "Transferencia desde B1" },
+]);
+// Transferencia 2: Bodega 2 → Bodega 3 · 60 bultos · prod 3 · lote 3
+db.movimientos.insertMany([
+  { _id: movId[29], id_producto: pId[3], id_lote: lotId[3], id_usuario: uId[1], tipo_movimiento: "SALIDA",  subtipo: "TRANSFERENCIA", cantidad: 60, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[2] }, observaciones: "Transferencia a B3" },
+  { _id: movId[30], id_producto: pId[3], id_lote: lotId[3], id_usuario: uId[1], tipo_movimiento: "ENTRADA", subtipo: "TRANSFERENCIA", cantidad: 60, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[3] }, observaciones: "Transferencia desde B2" },
+]);
+
+// ── 8E: Movimientos 31-40: ABASTECIMIENTOS a tiendas (SALIDA bodega + ABASTECIMIENTO tienda) ──
+// Abastecimiento 1: Bodega 1 → Tienda 1 · 300 bultos · prod 1 · lote 1
+db.movimientos.insertMany([
+  { _id: movId[31], id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[1], tipo_movimiento: "SALIDA",         subtipo: "TRANSFERENCIA", cantidad: 300, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[1] }, observaciones: "Abastecimiento Tienda 1" },
+  { _id: movId[32], id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[1], tipo_movimiento: "ABASTECIMIENTO", subtipo: null,            cantidad: 300, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[1]  }, observaciones: "Desde Bodega 1" },
+]);
+// Abastecimiento 2: Bodega 2 → Tienda 2 · 200 bultos · prod 2 · lote 2
+db.movimientos.insertMany([
+  { _id: movId[33], id_producto: pId[2], id_lote: lotId[2], id_usuario: uId[1], tipo_movimiento: "SALIDA",         subtipo: "TRANSFERENCIA", cantidad: 200, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[2] }, observaciones: "Abastecimiento Tienda 2" },
+  { _id: movId[34], id_producto: pId[2], id_lote: lotId[2], id_usuario: uId[1], tipo_movimiento: "ABASTECIMIENTO", subtipo: null,            cantidad: 200, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[2]  }, observaciones: "Desde Bodega 2" },
+]);
+// Abastecimiento 3: Bodega 3 → Tienda 3 · 250 bultos · prod 3 · lote 3
+db.movimientos.insertMany([
+  { _id: movId[35], id_producto: pId[3], id_lote: lotId[3], id_usuario: uId[1], tipo_movimiento: "SALIDA",         subtipo: "TRANSFERENCIA", cantidad: 250, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[3] }, observaciones: "Abastecimiento Tienda 3" },
+  { _id: movId[36], id_producto: pId[3], id_lote: lotId[3], id_usuario: uId[1], tipo_movimiento: "ABASTECIMIENTO", subtipo: null,            cantidad: 250, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[3]  }, observaciones: "Desde Bodega 3" },
+]);
+// Abastecimiento 4: Bodega 1 → Tienda 4 · 180 bultos · prod 4 · lote 4
+db.movimientos.insertMany([
+  { _id: movId[37], id_producto: pId[4], id_lote: lotId[4], id_usuario: uId[1], tipo_movimiento: "SALIDA",         subtipo: "TRANSFERENCIA", cantidad: 180, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[1] }, observaciones: "Abastecimiento Tienda 4" },
+  { _id: movId[38], id_producto: pId[4], id_lote: lotId[4], id_usuario: uId[1], tipo_movimiento: "ABASTECIMIENTO", subtipo: null,            cantidad: 180, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[4]  }, observaciones: "Desde Bodega 1" },
+]);
+// Abastecimiento 5: Bodega 2 → Tienda 5 · 220 bultos · prod 5 · lote 5
+db.movimientos.insertMany([
+  { _id: movId[39], id_producto: pId[5], id_lote: lotId[5], id_usuario: uId[1], tipo_movimiento: "SALIDA",         subtipo: "TRANSFERENCIA", cantidad: 220, fecha_movimiento: new Date(), ubicacion: { tipo: "BODEGA", id_ubicacion: bodId[2] }, observaciones: "Abastecimiento Tienda 5" },
+  { _id: movId[40], id_producto: pId[5], id_lote: lotId[5], id_usuario: uId[1], tipo_movimiento: "ABASTECIMIENTO", subtipo: null,            cantidad: 220, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[5]  }, observaciones: "Desde Bodega 2" },
+]);
+
+// ── 8F: Movimientos 41-115: VENTAS (subtipo null) ──
+db.movimientos.insertMany([
+  // Ventas 1-5
+  { _id: movId[41],  id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[3], tipo_movimiento: "VENTA", subtipo: null, cantidad: 20, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[1] }, observaciones: null },
+  { _id: movId[42],  id_producto: pId[2], id_lote: lotId[2], id_usuario: uId[4], tipo_movimiento: "VENTA", subtipo: null, cantidad: 15, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[2] }, observaciones: null },
+  { _id: movId[43],  id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[4], tipo_movimiento: "VENTA", subtipo: null, cantidad: 10, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[2] }, observaciones: null },
+  { _id: movId[44],  id_producto: pId[3], id_lote: lotId[3], id_usuario: uId[5], tipo_movimiento: "VENTA", subtipo: null, cantidad: 30, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[3] }, observaciones: null },
+  { _id: movId[45],  id_producto: pId[4], id_lote: lotId[4], id_usuario: uId[5], tipo_movimiento: "VENTA", subtipo: null, cantidad: 12, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[3] }, observaciones: null },
+  { _id: movId[46],  id_producto: pId[5], id_lote: lotId[5], id_usuario: uId[5], tipo_movimiento: "VENTA", subtipo: null, cantidad:  8, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[3] }, observaciones: null },
+  { _id: movId[47],  id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[6], tipo_movimiento: "VENTA", subtipo: null, cantidad: 25, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[4] }, observaciones: null },
+  { _id: movId[48],  id_producto: pId[2], id_lote: lotId[2], id_usuario: uId[7], tipo_movimiento: "VENTA", subtipo: null, cantidad: 18, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[5] }, observaciones: null },
+  { _id: movId[49],  id_producto: pId[3], id_lote: lotId[3], id_usuario: uId[7], tipo_movimiento: "VENTA", subtipo: null, cantidad: 22, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[5] }, observaciones: null },
+  // Ventas 6-10
+  { _id: movId[50],  id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[3], tipo_movimiento: "VENTA", subtipo: null, cantidad: 12, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[1] }, observaciones: null },
+  { _id: movId[51],  id_producto: pId[2], id_lote: lotId[2], id_usuario: uId[3], tipo_movimiento: "VENTA", subtipo: null, cantidad:  5, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[1] }, observaciones: null },
+  { _id: movId[52],  id_producto: pId[3], id_lote: lotId[3], id_usuario: uId[4], tipo_movimiento: "VENTA", subtipo: null, cantidad: 20, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[2] }, observaciones: null },
+  { _id: movId[53],  id_producto: pId[4], id_lote: lotId[4], id_usuario: uId[5], tipo_movimiento: "VENTA", subtipo: null, cantidad: 15, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[3] }, observaciones: null },
+  { _id: movId[54],  id_producto: pId[5], id_lote: lotId[5], id_usuario: uId[5], tipo_movimiento: "VENTA", subtipo: null, cantidad: 10, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[3] }, observaciones: null },
+  { _id: movId[55],  id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[6], tipo_movimiento: "VENTA", subtipo: null, cantidad: 30, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[4] }, observaciones: null },
+  { _id: movId[56],  id_producto: pId[2], id_lote: lotId[2], id_usuario: uId[7], tipo_movimiento: "VENTA", subtipo: null, cantidad: 25, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[5] }, observaciones: null },
+  { _id: movId[57],  id_producto: pId[3], id_lote: lotId[3], id_usuario: uId[7], tipo_movimiento: "VENTA", subtipo: null, cantidad: 18, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[5] }, observaciones: null },
+  // Ventas 11-15
+  { _id: movId[58],  id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[3], tipo_movimiento: "VENTA", subtipo: null, cantidad:  8, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[1] }, observaciones: null },
+  { _id: movId[59],  id_producto: pId[2], id_lote: lotId[2], id_usuario: uId[4], tipo_movimiento: "VENTA", subtipo: null, cantidad: 10, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[2] }, observaciones: null },
+  { _id: movId[60],  id_producto: pId[3], id_lote: lotId[3], id_usuario: uId[5], tipo_movimiento: "VENTA", subtipo: null, cantidad: 22, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[3] }, observaciones: null },
+  { _id: movId[61],  id_producto: pId[4], id_lote: lotId[4], id_usuario: uId[6], tipo_movimiento: "VENTA", subtipo: null, cantidad: 14, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[4] }, observaciones: null },
+  { _id: movId[62],  id_producto: pId[5], id_lote: lotId[5], id_usuario: uId[7], tipo_movimiento: "VENTA", subtipo: null, cantidad: 16, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[5] }, observaciones: null },
+  { _id: movId[63],  id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[7], tipo_movimiento: "VENTA", subtipo: null, cantidad:  7, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[5] }, observaciones: null },
+  // Ventas 16-20
+  { _id: movId[64],  id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[3], tipo_movimiento: "VENTA", subtipo: null, cantidad:  6, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[1] }, observaciones: null },
+  { _id: movId[65],  id_producto: pId[2], id_lote: lotId[2], id_usuario: uId[4], tipo_movimiento: "VENTA", subtipo: null, cantidad: 12, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[2] }, observaciones: null },
+  { _id: movId[66],  id_producto: pId[3], id_lote: lotId[3], id_usuario: uId[5], tipo_movimiento: "VENTA", subtipo: null, cantidad: 19, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[3] }, observaciones: null },
+  { _id: movId[67],  id_producto: pId[4], id_lote: lotId[4], id_usuario: uId[6], tipo_movimiento: "VENTA", subtipo: null, cantidad: 21, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[4] }, observaciones: null },
+  { _id: movId[68],  id_producto: pId[5], id_lote: lotId[5], id_usuario: uId[7], tipo_movimiento: "VENTA", subtipo: null, cantidad: 14, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[5] }, observaciones: null },
+  { _id: movId[69],  id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[7], tipo_movimiento: "VENTA", subtipo: null, cantidad:  9, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[5] }, observaciones: null },
+  // Ventas 21-30
+  { _id: movId[70],  id_producto: pId[2], id_lote: lotId[2], id_usuario: uId[3], tipo_movimiento: "VENTA", subtipo: null, cantidad: 13, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[1] }, observaciones: null },
+  { _id: movId[71],  id_producto: pId[3], id_lote: lotId[3], id_usuario: uId[3], tipo_movimiento: "VENTA", subtipo: null, cantidad:  7, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[1] }, observaciones: null },
+  { _id: movId[72],  id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[4], tipo_movimiento: "VENTA", subtipo: null, cantidad: 15, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[2] }, observaciones: null },
+  { _id: movId[73],  id_producto: pId[4], id_lote: lotId[4], id_usuario: uId[5], tipo_movimiento: "VENTA", subtipo: null, cantidad: 11, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[3] }, observaciones: null },
+  { _id: movId[74],  id_producto: pId[5], id_lote: lotId[5], id_usuario: uId[5], tipo_movimiento: "VENTA", subtipo: null, cantidad:  5, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[3] }, observaciones: null },
+  { _id: movId[75],  id_producto: pId[3], id_lote: lotId[3], id_usuario: uId[6], tipo_movimiento: "VENTA", subtipo: null, cantidad: 18, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[4] }, observaciones: null },
+  { _id: movId[76],  id_producto: pId[2], id_lote: lotId[2], id_usuario: uId[7], tipo_movimiento: "VENTA", subtipo: null, cantidad: 20, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[5] }, observaciones: null },
+  { _id: movId[77],  id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[3], tipo_movimiento: "VENTA", subtipo: null, cantidad:  4, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[1] }, observaciones: null },
+  { _id: movId[78],  id_producto: pId[5], id_lote: lotId[5], id_usuario: uId[3], tipo_movimiento: "VENTA", subtipo: null, cantidad:  3, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[1] }, observaciones: null },
+  { _id: movId[79],  id_producto: pId[4], id_lote: lotId[4], id_usuario: uId[4], tipo_movimiento: "VENTA", subtipo: null, cantidad: 17, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[2] }, observaciones: null },
+  { _id: movId[80],  id_producto: pId[3], id_lote: lotId[3], id_usuario: uId[5], tipo_movimiento: "VENTA", subtipo: null, cantidad: 14, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[3] }, observaciones: null },
+  { _id: movId[81],  id_producto: pId[2], id_lote: lotId[2], id_usuario: uId[5], tipo_movimiento: "VENTA", subtipo: null, cantidad:  8, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[3] }, observaciones: null },
+  { _id: movId[82],  id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[6], tipo_movimiento: "VENTA", subtipo: null, cantidad:  9, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[4] }, observaciones: null },
+  { _id: movId[83],  id_producto: pId[5], id_lote: lotId[5], id_usuario: uId[7], tipo_movimiento: "VENTA", subtipo: null, cantidad: 11, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[5] }, observaciones: null },
+  { _id: movId[84],  id_producto: pId[4], id_lote: lotId[4], id_usuario: uId[7], tipo_movimiento: "VENTA", subtipo: null, cantidad:  6, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[5] }, observaciones: null },
+  // Ventas 31-40
+  { _id: movId[85],  id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[3], tipo_movimiento: "VENTA", subtipo: null, cantidad:  5, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[1] }, observaciones: null },
+  { _id: movId[86],  id_producto: pId[2], id_lote: lotId[2], id_usuario: uId[4], tipo_movimiento: "VENTA", subtipo: null, cantidad: 12, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[2] }, observaciones: null },
+  { _id: movId[87],  id_producto: pId[3], id_lote: lotId[3], id_usuario: uId[4], tipo_movimiento: "VENTA", subtipo: null, cantidad:  9, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[2] }, observaciones: null },
+  { _id: movId[88],  id_producto: pId[4], id_lote: lotId[4], id_usuario: uId[5], tipo_movimiento: "VENTA", subtipo: null, cantidad: 14, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[3] }, observaciones: null },
+  { _id: movId[89],  id_producto: pId[5], id_lote: lotId[5], id_usuario: uId[6], tipo_movimiento: "VENTA", subtipo: null, cantidad:  8, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[4] }, observaciones: null },
+  { _id: movId[90],  id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[6], tipo_movimiento: "VENTA", subtipo: null, cantidad:  4, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[4] }, observaciones: null },
+  { _id: movId[91],  id_producto: pId[3], id_lote: lotId[3], id_usuario: uId[7], tipo_movimiento: "VENTA", subtipo: null, cantidad: 16, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[5] }, observaciones: null },
+  { _id: movId[92],  id_producto: pId[2], id_lote: lotId[2], id_usuario: uId[3], tipo_movimiento: "VENTA", subtipo: null, cantidad:  7, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[1] }, observaciones: null },
+  { _id: movId[93],  id_producto: pId[4], id_lote: lotId[4], id_usuario: uId[3], tipo_movimiento: "VENTA", subtipo: null, cantidad:  5, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[1] }, observaciones: null },
+  { _id: movId[94],  id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[4], tipo_movimiento: "VENTA", subtipo: null, cantidad: 18, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[2] }, observaciones: null },
+  { _id: movId[95],  id_producto: pId[5], id_lote: lotId[5], id_usuario: uId[5], tipo_movimiento: "VENTA", subtipo: null, cantidad: 21, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[3] }, observaciones: null },
+  { _id: movId[96],  id_producto: pId[3], id_lote: lotId[3], id_usuario: uId[6], tipo_movimiento: "VENTA", subtipo: null, cantidad: 13, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[4] }, observaciones: null },
+  { _id: movId[97],  id_producto: pId[2], id_lote: lotId[2], id_usuario: uId[6], tipo_movimiento: "VENTA", subtipo: null, cantidad:  6, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[4] }, observaciones: null },
+  { _id: movId[98],  id_producto: pId[4], id_lote: lotId[4], id_usuario: uId[7], tipo_movimiento: "VENTA", subtipo: null, cantidad: 10, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[5] }, observaciones: null },
+  { _id: movId[99],  id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[7], tipo_movimiento: "VENTA", subtipo: null, cantidad:  3, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[5] }, observaciones: null },
+  // Ventas 41-50
+  { _id: movId[100], id_producto: pId[2], id_lote: lotId[2], id_usuario: uId[3], tipo_movimiento: "VENTA", subtipo: null, cantidad:  9, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[1] }, observaciones: null },
+  { _id: movId[101], id_producto: pId[5], id_lote: lotId[5], id_usuario: uId[3], tipo_movimiento: "VENTA", subtipo: null, cantidad:  4, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[1] }, observaciones: null },
+  { _id: movId[102], id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[4], tipo_movimiento: "VENTA", subtipo: null, cantidad: 12, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[2] }, observaciones: null },
+  { _id: movId[103], id_producto: pId[3], id_lote: lotId[3], id_usuario: uId[5], tipo_movimiento: "VENTA", subtipo: null, cantidad: 15, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[3] }, observaciones: null },
+  { _id: movId[104], id_producto: pId[4], id_lote: lotId[4], id_usuario: uId[5], tipo_movimiento: "VENTA", subtipo: null, cantidad:  7, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[3] }, observaciones: null },
+  { _id: movId[105], id_producto: pId[5], id_lote: lotId[5], id_usuario: uId[6], tipo_movimiento: "VENTA", subtipo: null, cantidad:  6, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[4] }, observaciones: null },
+  { _id: movId[106], id_producto: pId[2], id_lote: lotId[2], id_usuario: uId[7], tipo_movimiento: "VENTA", subtipo: null, cantidad: 14, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[5] }, observaciones: null },
+  { _id: movId[107], id_producto: pId[3], id_lote: lotId[3], id_usuario: uId[7], tipo_movimiento: "VENTA", subtipo: null, cantidad:  5, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[5] }, observaciones: null },
+  { _id: movId[108], id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[3], tipo_movimiento: "VENTA", subtipo: null, cantidad:  8, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[1] }, observaciones: null },
+  { _id: movId[109], id_producto: pId[4], id_lote: lotId[4], id_usuario: uId[3], tipo_movimiento: "VENTA", subtipo: null, cantidad:  3, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[1] }, observaciones: null },
+  { _id: movId[110], id_producto: pId[3], id_lote: lotId[3], id_usuario: uId[4], tipo_movimiento: "VENTA", subtipo: null, cantidad: 11, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[2] }, observaciones: null },
+  { _id: movId[111], id_producto: pId[2], id_lote: lotId[2], id_usuario: uId[5], tipo_movimiento: "VENTA", subtipo: null, cantidad: 17, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[3] }, observaciones: null },
+  { _id: movId[112], id_producto: pId[5], id_lote: lotId[5], id_usuario: uId[6], tipo_movimiento: "VENTA", subtipo: null, cantidad: 10, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[4] }, observaciones: null },
+  { _id: movId[113], id_producto: pId[1], id_lote: lotId[1], id_usuario: uId[6], tipo_movimiento: "VENTA", subtipo: null, cantidad:  5, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[4] }, observaciones: null },
+  { _id: movId[114], id_producto: pId[4], id_lote: lotId[4], id_usuario: uId[7], tipo_movimiento: "VENTA", subtipo: null, cantidad: 13, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[5] }, observaciones: null },
+  { _id: movId[115], id_producto: pId[2], id_lote: lotId[2], id_usuario: uId[7], tipo_movimiento: "VENTA", subtipo: null, cantidad:  7, fecha_movimiento: new Date(), ubicacion: { tipo: "TIENDA", id_ubicacion: tId[5] }, observaciones: null },
+]);
+print("✔ movimientos insertados: " + db.movimientos.countDocuments());
+
+
+// ─────────────────────────────────────────────────────────────
+// 9. VENTAS  (SQL tablas: venta + venta_detalle — UNIFICADAS)
+//    venta_detalle queda EMBEBIDO como array "items" en cada venta.
+//    50 ventas, 1-3 líneas (items) cada una.
+// ─────────────────────────────────────────────────────────────
+db.ventas.insertMany([
+  // ── Ventas 1-5 ──
+  { _id: venId[1],  id_cliente: cliId[1],  id_usuario: uId[3], id_tienda: tId[1], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[1], id_lote: lotId[1], cantidad: 20, id_movimiento: movId[41] }
+  ]},
+  { _id: venId[2],  id_cliente: cliId[2],  id_usuario: uId[4], id_tienda: tId[2], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[2], id_lote: lotId[2], cantidad: 15, id_movimiento: movId[42] },
+      { id_producto: pId[1], id_lote: lotId[1], cantidad: 10, id_movimiento: movId[43] }
+  ]},
+  { _id: venId[3],  id_cliente: cliId[3],  id_usuario: uId[5], id_tienda: tId[3], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[3], id_lote: lotId[3], cantidad: 30, id_movimiento: movId[44] },
+      { id_producto: pId[4], id_lote: lotId[4], cantidad: 12, id_movimiento: movId[45] },
+      { id_producto: pId[5], id_lote: lotId[5], cantidad:  8, id_movimiento: movId[46] }
+  ]},
+  { _id: venId[4],  id_cliente: cliId[4],  id_usuario: uId[6], id_tienda: tId[4], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[1], id_lote: lotId[1], cantidad: 25, id_movimiento: movId[47] }
+  ]},
+  { _id: venId[5],  id_cliente: cliId[5],  id_usuario: uId[7], id_tienda: tId[5], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[2], id_lote: lotId[2], cantidad: 18, id_movimiento: movId[48] },
+      { id_producto: pId[3], id_lote: lotId[3], cantidad: 22, id_movimiento: movId[49] }
+  ]},
+  // ── Ventas 6-10 ──
+  { _id: venId[6],  id_cliente: cliId[6],  id_usuario: uId[3], id_tienda: tId[1], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[1], id_lote: lotId[1], cantidad: 12, id_movimiento: movId[50] },
+      { id_producto: pId[2], id_lote: lotId[2], cantidad:  5, id_movimiento: movId[51] }
+  ]},
+  { _id: venId[7],  id_cliente: cliId[7],  id_usuario: uId[4], id_tienda: tId[2], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[3], id_lote: lotId[3], cantidad: 20, id_movimiento: movId[52] }
+  ]},
+  { _id: venId[8],  id_cliente: cliId[8],  id_usuario: uId[5], id_tienda: tId[3], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[4], id_lote: lotId[4], cantidad: 15, id_movimiento: movId[53] },
+      { id_producto: pId[5], id_lote: lotId[5], cantidad: 10, id_movimiento: movId[54] }
+  ]},
+  { _id: venId[9],  id_cliente: cliId[9],  id_usuario: uId[6], id_tienda: tId[4], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[1], id_lote: lotId[1], cantidad: 30, id_movimiento: movId[55] }
+  ]},
+  { _id: venId[10], id_cliente: cliId[10], id_usuario: uId[7], id_tienda: tId[5], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[2], id_lote: lotId[2], cantidad: 25, id_movimiento: movId[56] },
+      { id_producto: pId[3], id_lote: lotId[3], cantidad: 18, id_movimiento: movId[57] }
+  ]},
+  // ── Ventas 11-15 ──
+  { _id: venId[11], id_cliente: cliId[11], id_usuario: uId[3], id_tienda: tId[1], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[1], id_lote: lotId[1], cantidad:  8, id_movimiento: movId[58] }
+  ]},
+  { _id: venId[12], id_cliente: cliId[12], id_usuario: uId[4], id_tienda: tId[2], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[2], id_lote: lotId[2], cantidad: 10, id_movimiento: movId[59] }
+  ]},
+  { _id: venId[13], id_cliente: cliId[13], id_usuario: uId[5], id_tienda: tId[3], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[3], id_lote: lotId[3], cantidad: 22, id_movimiento: movId[60] }
+  ]},
+  { _id: venId[14], id_cliente: cliId[14], id_usuario: uId[6], id_tienda: tId[4], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[4], id_lote: lotId[4], cantidad: 14, id_movimiento: movId[61] }
+  ]},
+  { _id: venId[15], id_cliente: cliId[15], id_usuario: uId[7], id_tienda: tId[5], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[5], id_lote: lotId[5], cantidad: 16, id_movimiento: movId[62] },
+      { id_producto: pId[1], id_lote: lotId[1], cantidad:  7, id_movimiento: movId[63] }
+  ]},
+  // ── Ventas 16-20 ──
+  { _id: venId[16], id_cliente: cliId[16], id_usuario: uId[3], id_tienda: tId[1], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[1], id_lote: lotId[1], cantidad:  6, id_movimiento: movId[64] }
+  ]},
+  { _id: venId[17], id_cliente: cliId[17], id_usuario: uId[4], id_tienda: tId[2], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[2], id_lote: lotId[2], cantidad: 12, id_movimiento: movId[65] }
+  ]},
+  { _id: venId[18], id_cliente: cliId[18], id_usuario: uId[5], id_tienda: tId[3], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[3], id_lote: lotId[3], cantidad: 19, id_movimiento: movId[66] }
+  ]},
+  { _id: venId[19], id_cliente: cliId[19], id_usuario: uId[6], id_tienda: tId[4], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[4], id_lote: lotId[4], cantidad: 21, id_movimiento: movId[67] }
+  ]},
+  { _id: venId[20], id_cliente: cliId[20], id_usuario: uId[7], id_tienda: tId[5], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[5], id_lote: lotId[5], cantidad: 14, id_movimiento: movId[68] },
+      { id_producto: pId[1], id_lote: lotId[1], cantidad:  9, id_movimiento: movId[69] }
+  ]},
+  // ── Ventas 21-30 ──
+  { _id: venId[21], id_cliente: cliId[21], id_usuario: uId[3], id_tienda: tId[1], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[2], id_lote: lotId[2], cantidad: 13, id_movimiento: movId[70] },
+      { id_producto: pId[3], id_lote: lotId[3], cantidad:  7, id_movimiento: movId[71] }
+  ]},
+  { _id: venId[22], id_cliente: cliId[22], id_usuario: uId[4], id_tienda: tId[2], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[1], id_lote: lotId[1], cantidad: 15, id_movimiento: movId[72] }
+  ]},
+  { _id: venId[23], id_cliente: cliId[23], id_usuario: uId[5], id_tienda: tId[3], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[4], id_lote: lotId[4], cantidad: 11, id_movimiento: movId[73] },
+      { id_producto: pId[5], id_lote: lotId[5], cantidad:  5, id_movimiento: movId[74] }
+  ]},
+  { _id: venId[24], id_cliente: cliId[24], id_usuario: uId[6], id_tienda: tId[4], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[3], id_lote: lotId[3], cantidad: 18, id_movimiento: movId[75] }
+  ]},
+  { _id: venId[25], id_cliente: cliId[25], id_usuario: uId[7], id_tienda: tId[5], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[2], id_lote: lotId[2], cantidad: 20, id_movimiento: movId[76] }
+  ]},
+  { _id: venId[26], id_cliente: cliId[26], id_usuario: uId[3], id_tienda: tId[1], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[1], id_lote: lotId[1], cantidad:  4, id_movimiento: movId[77] },
+      { id_producto: pId[5], id_lote: lotId[5], cantidad:  3, id_movimiento: movId[78] }
+  ]},
+  { _id: venId[27], id_cliente: cliId[27], id_usuario: uId[4], id_tienda: tId[2], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[4], id_lote: lotId[4], cantidad: 17, id_movimiento: movId[79] }
+  ]},
+  { _id: venId[28], id_cliente: cliId[28], id_usuario: uId[5], id_tienda: tId[3], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[3], id_lote: lotId[3], cantidad: 14, id_movimiento: movId[80] },
+      { id_producto: pId[2], id_lote: lotId[2], cantidad:  8, id_movimiento: movId[81] }
+  ]},
+  { _id: venId[29], id_cliente: cliId[29], id_usuario: uId[6], id_tienda: tId[4], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[1], id_lote: lotId[1], cantidad:  9, id_movimiento: movId[82] }
+  ]},
+  { _id: venId[30], id_cliente: cliId[30], id_usuario: uId[7], id_tienda: tId[5], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[5], id_lote: lotId[5], cantidad: 11, id_movimiento: movId[83] },
+      { id_producto: pId[4], id_lote: lotId[4], cantidad:  6, id_movimiento: movId[84] }
+  ]},
+  // ── Ventas 31-40 ──
+  { _id: venId[31], id_cliente: cliId[31], id_usuario: uId[3], id_tienda: tId[1], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[1], id_lote: lotId[1], cantidad:  5, id_movimiento: movId[85] }
+  ]},
+  { _id: venId[32], id_cliente: cliId[32], id_usuario: uId[4], id_tienda: tId[2], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[2], id_lote: lotId[2], cantidad: 12, id_movimiento: movId[86] },
+      { id_producto: pId[3], id_lote: lotId[3], cantidad:  9, id_movimiento: movId[87] }
+  ]},
+  { _id: venId[33], id_cliente: cliId[33], id_usuario: uId[5], id_tienda: tId[3], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[4], id_lote: lotId[4], cantidad: 14, id_movimiento: movId[88] }
+  ]},
+  { _id: venId[34], id_cliente: cliId[34], id_usuario: uId[6], id_tienda: tId[4], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[5], id_lote: lotId[5], cantidad:  8, id_movimiento: movId[89] },
+      { id_producto: pId[1], id_lote: lotId[1], cantidad:  4, id_movimiento: movId[90] }
+  ]},
+  { _id: venId[35], id_cliente: cliId[35], id_usuario: uId[7], id_tienda: tId[5], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[3], id_lote: lotId[3], cantidad: 16, id_movimiento: movId[91] }
+  ]},
+  { _id: venId[36], id_cliente: cliId[36], id_usuario: uId[3], id_tienda: tId[1], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[2], id_lote: lotId[2], cantidad:  7, id_movimiento: movId[92] },
+      { id_producto: pId[4], id_lote: lotId[4], cantidad:  5, id_movimiento: movId[93] }
+  ]},
+  { _id: venId[37], id_cliente: cliId[37], id_usuario: uId[4], id_tienda: tId[2], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[1], id_lote: lotId[1], cantidad: 18, id_movimiento: movId[94] }
+  ]},
+  { _id: venId[38], id_cliente: cliId[38], id_usuario: uId[5], id_tienda: tId[3], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[5], id_lote: lotId[5], cantidad: 21, id_movimiento: movId[95] }
+  ]},
+  { _id: venId[39], id_cliente: cliId[39], id_usuario: uId[6], id_tienda: tId[4], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[3], id_lote: lotId[3], cantidad: 13, id_movimiento: movId[96] },
+      { id_producto: pId[2], id_lote: lotId[2], cantidad:  6, id_movimiento: movId[97] }
+  ]},
+  { _id: venId[40], id_cliente: cliId[40], id_usuario: uId[7], id_tienda: tId[5], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[4], id_lote: lotId[4], cantidad: 10, id_movimiento: movId[98] },
+      { id_producto: pId[1], id_lote: lotId[1], cantidad:  3, id_movimiento: movId[99] }
+  ]},
+  // ── Ventas 41-50 ──
+  { _id: venId[41], id_cliente: cliId[41], id_usuario: uId[3], id_tienda: tId[1], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[2], id_lote: lotId[2], cantidad:  9, id_movimiento: movId[100] },
+      { id_producto: pId[5], id_lote: lotId[5], cantidad:  4, id_movimiento: movId[101] }
+  ]},
+  { _id: venId[42], id_cliente: cliId[42], id_usuario: uId[4], id_tienda: tId[2], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[1], id_lote: lotId[1], cantidad: 12, id_movimiento: movId[102] }
+  ]},
+  { _id: venId[43], id_cliente: cliId[43], id_usuario: uId[5], id_tienda: tId[3], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[3], id_lote: lotId[3], cantidad: 15, id_movimiento: movId[103] },
+      { id_producto: pId[4], id_lote: lotId[4], cantidad:  7, id_movimiento: movId[104] }
+  ]},
+  { _id: venId[44], id_cliente: cliId[44], id_usuario: uId[6], id_tienda: tId[4], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[5], id_lote: lotId[5], cantidad:  6, id_movimiento: movId[105] }
+  ]},
+  { _id: venId[45], id_cliente: cliId[45], id_usuario: uId[7], id_tienda: tId[5], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[2], id_lote: lotId[2], cantidad: 14, id_movimiento: movId[106] },
+      { id_producto: pId[3], id_lote: lotId[3], cantidad:  5, id_movimiento: movId[107] }
+  ]},
+  { _id: venId[46], id_cliente: cliId[46], id_usuario: uId[3], id_tienda: tId[1], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[1], id_lote: lotId[1], cantidad:  8, id_movimiento: movId[108] },
+      { id_producto: pId[4], id_lote: lotId[4], cantidad:  3, id_movimiento: movId[109] }
+  ]},
+  { _id: venId[47], id_cliente: cliId[47], id_usuario: uId[4], id_tienda: tId[2], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[3], id_lote: lotId[3], cantidad: 11, id_movimiento: movId[110] }
+  ]},
+  { _id: venId[48], id_cliente: cliId[48], id_usuario: uId[5], id_tienda: tId[3], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[2], id_lote: lotId[2], cantidad: 17, id_movimiento: movId[111] }
+  ]},
+  { _id: venId[49], id_cliente: cliId[49], id_usuario: uId[6], id_tienda: tId[4], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[5], id_lote: lotId[5], cantidad: 10, id_movimiento: movId[112] },
+      { id_producto: pId[1], id_lote: lotId[1], cantidad:  5, id_movimiento: movId[113] }
+  ]},
+  { _id: venId[50], id_cliente: cliId[50], id_usuario: uId[7], id_tienda: tId[5], fecha_venta: new Date(), estado: "ACTIVA", items: [
+      { id_producto: pId[4], id_lote: lotId[4], cantidad: 13, id_movimiento: movId[114] },
+      { id_producto: pId[2], id_lote: lotId[2], cantidad:  7, id_movimiento: movId[115] }
+  ]},
+]);
+print("✔ ventas insertadas: " + db.ventas.countDocuments());
+
+
+// ─────────────────────────────────────────────────────────────
+// RESUMEN FINAL
+// ─────────────────────────────────────────────────────────────
+print("\n══════════════════════════════════════════");
+print("  SEED COMPLETADO — salinas_del_cravo");
+print("══════════════════════════════════════════");
+print("  usuarios    : " + db.usuarios.countDocuments());
+print("  categorias  : " + db.categorias.countDocuments());
+print("  productos   : " + db.productos.countDocuments());
+print("  bodegas     : " + db.bodegas.countDocuments());
+print("  tiendas     : " + db.tiendas.countDocuments());
+print("  clientes    : " + db.clientes.countDocuments());
+print("  lotes       : " + db.lotes.countDocuments());
+print("  movimientos : " + db.movimientos.countDocuments());
+print("  ventas      : " + db.ventas.countDocuments());
+print("══════════════════════════════════════════\n");
+
+// ============================================================
+// SEED — colección stock
+// salinas_del_cravo
+// Pobla stock con datos para probar RQF060 (stock bajo) y
+// RQF061 (bodega llena). Ejecutar DESPUÉS del seed principal.
+// ============================================================
+use("salinas_del_cravo");
+
+// ─────────────────────────────────────────────────────────────
+// Re-declarar los ObjectIds del seed principal para mantener
+// consistencia de referencias
+// ─────────────────────────────────────────────────────────────
+const pId = {
+  1:  new ObjectId("cccccc000000000000000001"),
+  2:  new ObjectId("cccccc000000000000000002"),
+  3:  new ObjectId("cccccc000000000000000003"),
+  4:  new ObjectId("cccccc000000000000000004"),
+  5:  new ObjectId("cccccc000000000000000005"),
+  6:  new ObjectId("cccccc000000000000000006"),
+  7:  new ObjectId("cccccc000000000000000007"),
+  8:  new ObjectId("cccccc000000000000000008"),
+  9:  new ObjectId("cccccc000000000000000009"),
+  10: new ObjectId("cccccc000000000000000010"),
+};
+
+const bodId = {
+  1: new ObjectId("dddddd000000000000000001"), // Bodega Central  cap: 5000
+  2: new ObjectId("dddddd000000000000000002"), // Bodega Norte    cap: 3000
+  3: new ObjectId("dddddd000000000000000003"), // Bodega Sur      cap: 2000
+};
+
+const tId = {
+  1: new ObjectId("eeeeee000000000000000001"),
+  2: new ObjectId("eeeeee000000000000000002"),
+  3: new ObjectId("eeeeee000000000000000003"),
+  4: new ObjectId("eeeeee000000000000000004"),
+  5: new ObjectId("eeeeee000000000000000005"),
+};
+
+const lotId = {
+  1:  new ObjectId("101010000000000000000001"),
+  2:  new ObjectId("101010000000000000000002"),
+  3:  new ObjectId("101010000000000000000003"),
+  4:  new ObjectId("101010000000000000000004"),
+  5:  new ObjectId("101010000000000000000005"),
+  6:  new ObjectId("101010000000000000000006"),
+  7:  new ObjectId("101010000000000000000007"),
+  8:  new ObjectId("101010000000000000000008"),
+  9:  new ObjectId("101010000000000000000009"),
+  10: new ObjectId("101010000000000000000010"),
+  11: new ObjectId("101010000000000000000011"),
+  12: new ObjectId("101010000000000000000012"),
+  13: new ObjectId("101010000000000000000013"),
+  14: new ObjectId("101010000000000000000014"),
+  15: new ObjectId("101010000000000000000015"),
+  16: new ObjectId("101010000000000000000016"),
+  17: new ObjectId("101010000000000000000017"),
+  18: new ObjectId("101010000000000000000018"),
+  19: new ObjectId("101010000000000000000019"),
+  20: new ObjectId("101010000000000000000020"),
+};
+
+// ─────────────────────────────────────────────────────────────
+// Limpiar stock previo
+// ─────────────────────────────────────────────────────────────
+db.stock.deleteMany({});
+print("Stock previo eliminado.");
+
+// ─────────────────────────────────────────────────────────────
+// STOCK EN BODEGAS
+//
+// Lógica de cantidades para cubrir ambas pruebas:
+//
+//  RQF060 — Stock bajo:
+//    Necesitamos registros donde cantidad_actual < stock_minimo_seguridad.
+//    Marcados con comentario [BAJO].
+//
+//  RQF061 — Bodega llena:
+//    Necesitamos que la SUMA de cantidad_actual en una bodega
+//    >= capacidad_maxima_bultos de esa bodega.
+//    Bodega Sur (cap: 2000) la llenaremos intencionalmente.
+//    Marcados con comentario [LLENA].
+//
+// Distribución:
+//   Bodega Central (cap 5000): stock normal ~1800 bultos totales → no llena
+//   Bodega Norte   (cap 3000): stock normal ~900  bultos totales → no llena
+//   Bodega Sur     (cap 2000): stock forzado a 2000 bultos       → LLENA [RQF061]
+// ─────────────────────────────────────────────────────────────
+db.stock.insertMany([
+
+  // ══════════════════════════════════════════
+  // BODEGA CENTRAL (capacidad: 5000 bultos)
+  // Total aprox: 1820 → NO llena
+  // ══════════════════════════════════════════
+
+  // Lote 1 — pId[1] SAL12-B50 — stock normal
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[1],
+    id_producto:            pId[1],
+    id_lote:                lotId[1],
+    cantidad_actual:        NumberInt(500),
+    stock_minimo_seguridad: NumberInt(100),
+    fecha_ultima_auditoria: new Date("2026-05-01")
+  },
+
+  // Lote 4 — pId[4] SAL10-B40 — [BAJO] cantidad < mínimo
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[1],
+    id_producto:            pId[4],
+    id_lote:                lotId[4],
+    cantidad_actual:        NumberInt(30),   // ← BAJO del mínimo
+    stock_minimo_seguridad: NumberInt(150),
+    fecha_ultima_auditoria: new Date("2026-05-10")
+  },
+
+  // Lote 7 — pId[7] SAL06-B50 — stock normal
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[1],
+    id_producto:            pId[7],
+    id_lote:                lotId[7],
+    cantidad_actual:        NumberInt(400),
+    stock_minimo_seguridad: NumberInt(80),
+    fecha_ultima_auditoria: new Date("2026-05-15")
+  },
+
+  // Lote 10 — pId[10] SAL04-B40 — [BAJO] cantidad < mínimo
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[1],
+    id_producto:            pId[10],
+    id_lote:                lotId[10],
+    cantidad_actual:        NumberInt(5),    // ← BAJO del mínimo
+    stock_minimo_seguridad: NumberInt(200),
+    fecha_ultima_auditoria: new Date("2026-05-20")
+  },
+
+  // Lote 13 — pId[3] SAL10-B50 — stock normal
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[1],
+    id_producto:            pId[3],
+    id_lote:                lotId[13],
+    cantidad_actual:        NumberInt(380),
+    stock_minimo_seguridad: NumberInt(50),
+    fecha_ultima_auditoria: new Date("2026-05-22")
+  },
+
+  // Lote 16 — pId[6] SAL08-B40 — stock normal
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[1],
+    id_producto:            pId[6],
+    id_lote:                lotId[16],
+    cantidad_actual:        NumberInt(505),
+    stock_minimo_seguridad: NumberInt(100),
+    fecha_ultima_auditoria: new Date("2026-05-23")
+  },
+
+  // Lote 19 — pId[9] SAL04-B50 — stock normal
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[1],
+    id_producto:            pId[9],
+    id_lote:                lotId[19],
+    cantidad_actual:        NumberInt(0),    // ← BAJO (en 0, mínimo 120)
+    stock_minimo_seguridad: NumberInt(120),
+    fecha_ultima_auditoria: new Date("2026-05-25")
+  },
+
+
+  // ══════════════════════════════════════════
+  // BODEGA NORTE (capacidad: 3000 bultos)
+  // Total aprox: 910 → NO llena
+  // ══════════════════════════════════════════
+
+  // Lote 2 — pId[2] SAL12-B40 — stock normal
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[2],
+    id_producto:            pId[2],
+    id_lote:                lotId[2],
+    cantidad_actual:        NumberInt(300),
+    stock_minimo_seguridad: NumberInt(60),
+    fecha_ultima_auditoria: new Date("2026-05-01")
+  },
+
+  // Lote 5 — pId[5] SAL08-B50 — [BAJO] cantidad < mínimo
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[2],
+    id_producto:            pId[5],
+    id_lote:                lotId[5],
+    cantidad_actual:        NumberInt(10),   // ← BAJO del mínimo
+    stock_minimo_seguridad: NumberInt(250),
+    fecha_ultima_auditoria: new Date("2026-05-12")
+  },
+
+  // Lote 8 — pId[8] SAL06-B40 — stock normal
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[2],
+    id_producto:            pId[8],
+    id_lote:                lotId[8],
+    cantidad_actual:        NumberInt(200),
+    stock_minimo_seguridad: NumberInt(40),
+    fecha_ultima_auditoria: new Date("2026-05-18")
+  },
+
+  // Lote 11 — pId[1] SAL12-B50 — stock normal
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[2],
+    id_producto:            pId[1],
+    id_lote:                lotId[11],
+    cantidad_actual:        NumberInt(400),
+    stock_minimo_seguridad: NumberInt(75),
+    fecha_ultima_auditoria: new Date("2026-05-20")
+  },
+
+  // ══════════════════════════════════════════
+  // BODEGA SUR (capacidad: 2000 bultos)
+  // Total FORZADO a 2000 → LLENA [RQF061]
+  // ══════════════════════════════════════════
+
+  // Lote 3 — pId[3] SAL10-B50
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[3],
+    id_producto:            pId[3],
+    id_lote:                lotId[3],
+    cantidad_actual:        NumberInt(700),  // parcial
+    stock_minimo_seguridad: NumberInt(80),
+    fecha_ultima_auditoria: new Date("2026-05-05")
+  },
+
+  // Lote 6 — pId[6] SAL08-B40
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[3],
+    id_producto:            pId[6],
+    id_lote:                lotId[6],
+    cantidad_actual:        NumberInt(650),  // parcial
+    stock_minimo_seguridad: NumberInt(60),
+    fecha_ultima_auditoria: new Date("2026-05-14")
+  },
+
+  // Lote 9 — pId[9] SAL04-B50
+  {
+    tipo_ubicacion:         "BODEGA",
+    id_ubicacion:           bodId[3],
+    id_producto:            pId[9],
+    id_lote:                lotId[9],
+    cantidad_actual:        NumberInt(650),  // parcial
+    stock_minimo_seguridad: NumberInt(50),
+    fecha_ultima_auditoria: new Date("2026-05-21")
+  },
+
+  // ─── Suma parcial Bodega Sur hasta aquí: 2000 ───
+  // 700 + 650 + 650 = 2000 >= capacidad_maxima_bultos(2000) → ALERTA RQF061
+
+
+  // ══════════════════════════════════════════
+  // STOCK EN TIENDAS (para completar el modelo)
+  // No participan en RQF060/061 (solo BODEGAs)
+  // ══════════════════════════════════════════
+
+  // Tienda 1
+  {
+    tipo_ubicacion:         "TIENDA",
+    id_ubicacion:           tId[1],
+    id_producto:            pId[1],
+    id_lote:                lotId[1],
+    cantidad_actual:        NumberInt(80),
+    stock_minimo_seguridad: NumberInt(10),
+    fecha_ultima_auditoria: new Date("2026-05-28")
+  },
+  {
+    tipo_ubicacion:         "TIENDA",
+    id_ubicacion:           tId[1],
+    id_producto:            pId[2],
+    id_lote:                lotId[2],
+    cantidad_actual:        NumberInt(45),
+    stock_minimo_seguridad: NumberInt(10),
+    fecha_ultima_auditoria: new Date("2026-05-28")
+  },
+
+  // Tienda 2
+  {
+    tipo_ubicacion:         "TIENDA",
+    id_ubicacion:           tId[2],
+    id_producto:            pId[3],
+    id_lote:                lotId[3],
+    cantidad_actual:        NumberInt(60),
+    stock_minimo_seguridad: NumberInt(10),
+    fecha_ultima_auditoria: new Date("2026-05-27")
+  },
+  {
+    tipo_ubicacion:         "TIENDA",
+    id_ubicacion:           tId[2],
+    id_producto:            pId[4],
+    id_lote:                lotId[4],
+    cantidad_actual:        NumberInt(30),
+    stock_minimo_seguridad: NumberInt(10),
+    fecha_ultima_auditoria: new Date("2026-05-27")
+  },
+
+  // Tienda 3
+  {
+    tipo_ubicacion:         "TIENDA",
+    id_ubicacion:           tId[3],
+    id_producto:            pId[5],
+    id_lote:                lotId[5],
+    cantidad_actual:        NumberInt(50),
+    stock_minimo_seguridad: NumberInt(10),
+    fecha_ultima_auditoria: new Date("2026-05-26")
+  },
+
+  // Tienda 4
+  {
+    tipo_ubicacion:         "TIENDA",
+    id_ubicacion:           tId[4],
+    id_producto:            pId[1],
+    id_lote:                lotId[11],
+    cantidad_actual:        NumberInt(35),
+    stock_minimo_seguridad: NumberInt(5),
+    fecha_ultima_auditoria: new Date("2026-05-25")
+  },
+
+  // Tienda 5
+  {
+    tipo_ubicacion:         "TIENDA",
+    id_ubicacion:           tId[5],
+    id_producto:            pId[2],
+    id_lote:                lotId[12],
+    cantidad_actual:        NumberInt(20),
+    stock_minimo_seguridad: NumberInt(5),
+    fecha_ultima_auditoria: new Date("2026-05-24")
+  },
+]);
+
+print("✔ Stock insertado: " + db.stock.countDocuments() + " registros.");
+
+
+// ─────────────────────────────────────────────────────────────
+// VERIFICACIÓN INMEDIATA
+// ─────────────────────────────────────────────────────────────
+print("\n══ Verificación RQF060 — Registros con stock bajo el mínimo ══");
+const stockBajo = db.stock.find({
+  tipo_ubicacion: "BODEGA",
+  $expr: { $lt: ["$cantidad_actual", "$stock_minimo_seguridad"] }
+}).toArray();
+
+if (stockBajo.length === 0) {
+  print("  ✘ Ningún registro bajo el mínimo — revisar datos.");
+} else {
+  stockBajo.forEach(function(s) {
+    const prod   = db.productos.findOne({ _id: s.id_producto });
+    const bodega = db.bodegas.findOne({ _id: s.id_ubicacion });
+    print("  ✔ [BAJO] Bodega: " + (bodega ? bodega.nombre_bodega : s.id_ubicacion) +
+          " | Producto: " + (prod ? prod.codigo_tipo_sal : s.id_producto) +
+          " | actual: " + s.cantidad_actual +
+          " | mínimo: " + s.stock_minimo_seguridad);
+  });
+}
+
+print("\n══ Verificación RQF061 — Bodegas llenas o sobre capacidad ══");
+db.stock.aggregate([
+  { $match: { tipo_ubicacion: "BODEGA" } },
+  { $group: {
+      _id:          "$id_ubicacion",
+      total_bultos: { $sum: "$cantidad_actual" }
+  }}
+]).forEach(function(r) {
+  const bodega = db.bodegas.findOne({ _id: r._id });
+  if (!bodega) return;
+  const estado = r.total_bultos >= bodega.capacidad_maxima_bultos ? "✔ [LLENA]" : "  (normal)";
+  print("  " + estado + " " + bodega.nombre_bodega +
+        ": " + r.total_bultos + " / " + bodega.capacidad_maxima_bultos + " bultos");
+});
+
+print("\n══ Resumen de stock por colección ══");
+print("  BODEGA registros : " + db.stock.countDocuments({ tipo_ubicacion: "BODEGA" }));
+print("  TIENDA registros : " + db.stock.countDocuments({ tipo_ubicacion: "TIENDA" }));
+print("  Total            : " + db.stock.countDocuments());
